@@ -1,4 +1,35 @@
 {
   "_comment": "Adjustable settings. Timing assumptions are added in Stage 3.",
-  "ignoreSelectors": []
+  "ignoreSelectors": [],
+  "checks": {
+    "_comment": "measureFocus briefly focuses each stop (then restores focus and scroll) to test skip links and sticky headers. probeTabKey sends a synthetic Tab keydown to non-text elements to spot code that cancels Tab.",
+    "measureFocus": true,
+    "probeTabKey": true,
+    "skipLinkMinStops": 3,
+    "groupTolerancePx": 20
+  },
+  "axeRules": [
+    "tabindex",
+    "heading-order",
+    "page-has-heading-one",
+    "empty-heading",
+    "bypass",
+    "scrollable-region-focusable",
+    "frame-focusable-content"
+  ],
+  "display": {
+    "defaultPalette": "navy",
+    "defaultSize": "medium",
+    "palettes": {
+      "navy": { "label": "Navy (default)", "real": "#1a1a5e", "realText": "#ffffff", "suggested": "#b0006a", "suggestedText": "#ffffff", "halo": "#ffffff" },
+      "contrast": { "label": "High contrast (black, yellow outline)", "real": "#000000", "realText": "#ffff00", "suggested": "#0047ab", "suggestedText": "#ffffff", "halo": "#ffff00" },
+      "magenta": { "label": "Magenta and teal", "real": "#8a0057", "realText": "#ffffff", "suggested": "#005f56", "suggestedText": "#ffffff", "halo": "#ffffff" },
+      "dark": { "label": "For dark pages (white)", "real": "#ffffff", "realText": "#000000", "suggested": "#ffd23f", "suggestedText": "#000000", "halo": "#000000" }
+    },
+    "sizes": {
+      "small": { "label": "Small", "badge": 18, "font": 10, "stroke": 1.5 },
+      "medium": { "label": "Medium", "badge": 22, "font": 12, "stroke": 2 },
+      "large": { "label": "Large", "badge": 30, "font": 16, "stroke": 3.5 }
+    }
+  }
 }

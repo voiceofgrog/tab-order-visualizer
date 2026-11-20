@@ -123,6 +123,7 @@ test.describe('overlay', () => {
     const before = await snapshot();
     await page.evaluate(() => window.TabOrderViz!.show());
     await expect(page.getByRole('region', { name: 'Tab order visualizer' })).toBeVisible();
+    await expect(page.getByRole('status').first()).toHaveText(/Tab stops/);
     expect(await snapshot()).toEqual(before);
   });
 
@@ -136,7 +137,7 @@ test.describe('overlay', () => {
     await expect(badges.first()).toBeVisible();
     await expect(badges.first()).toHaveCSS('font-size', '12px');
     await expect(page.getByRole('button', { name: 'Hide overlay' })).toHaveCSS('font-size', '13px');
-    await expect(page.getByRole('status')).toHaveText(`${count} Tab stops, 2 focusable but not visible.`);
+    await expect(page.getByRole('status').first()).toHaveText(`${count} Tab stops, 2 focusable but not visible.`);
   });
 
   test('panel hides, shows and closes the overlay', async ({ page }) => {
@@ -162,7 +163,7 @@ test.describe('bookmarklet', () => {
     await page.goto('/demo/csp.html');
     await page.evaluate(code);
     await expect(page.getByRole('region', { name: 'Tab order visualizer' })).toBeVisible();
-    await expect(page.getByRole('status')).toHaveText('3 Tab stops.');
+    await expect(page.getByRole('status').first()).toHaveText('3 Tab stops.');
     await expect(page.locator('tab-order-viz .badge').first()).toHaveCSS('border-radius', '11px');
     await page.evaluate(code); // second click closes
     await expect(page.locator('tab-order-viz')).toHaveCount(0);

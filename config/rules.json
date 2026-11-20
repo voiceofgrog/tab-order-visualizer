@@ -1,0 +1,55 @@
+{
+  "_comment": "Plain-language wording for the axe-core rules we run. axe does the detecting; these texts explain the result to non-specialists.",
+  "tabindex": {
+    "severity": "review",
+    "title": "Positive tabindex changes the Tab order",
+    "why": "A tabindex above 0 pulls an element ahead of everything else, so keyboard users jump around the page instead of moving through it in reading order.",
+    "fix": "Remove the tabindex (or set it to 0) and move the element in the HTML to where it should be reached.",
+    "note": "axe treats this as a best practice. It becomes a WCAG failure when the resulting order is confusing, which it usually is.",
+    "wcag": ["2.4.3"]
+  },
+  "heading-order": {
+    "severity": "advice",
+    "title": "Heading levels are skipped",
+    "why": "Screen reader users jump between headings to scan a page. A jump such as H1 to H4 suggests missing sections and makes the outline harder to follow.",
+    "fix": "Use the next level down (H2 after H1, H3 after H2). Choose the level for structure and use CSS for the size.",
+    "note": "A best practice, not a WCAG failure on its own.",
+    "wcag": ["1.3.1"]
+  },
+  "page-has-heading-one": {
+    "severity": "advice",
+    "title": "No H1 heading",
+    "why": "An H1 naming the page lets screen reader users confirm where they are and jump straight to the main content.",
+    "fix": "Add one H1 with the page title at the start of the main content.",
+    "note": "A best practice, not a WCAG failure on its own.",
+    "wcag": ["1.3.1"]
+  },
+  "empty-heading": {
+    "severity": "review",
+    "title": "Empty heading",
+    "why": "A heading with no text is announced as just 'heading', which tells screen reader users nothing.",
+    "fix": "Give the heading text, or remove the heading markup if it is only used for spacing or styling.",
+    "wcag": ["1.3.1", "2.4.6"]
+  },
+  "bypass": {
+    "severity": "fail",
+    "title": "No way to skip repeated content",
+    "why": "Without a skip link, landmarks or headings, keyboard and screen reader users must go through the whole header and menu on every page.",
+    "fix": "Add a 'Skip to main content' link as the first item on the page, and mark up the page with <header>, <nav> and <main>.",
+    "wcag": ["2.4.1"]
+  },
+  "scrollable-region-focusable": {
+    "severity": "review",
+    "title": "Scrollable area may not be reachable by keyboard",
+    "why": "Keyboard users scroll a box by focusing it. Chrome and Firefox now make such boxes focusable automatically; Safari does not, so there it cannot be scrolled without a mouse.",
+    "fix": "Add tabindex=\"0\" to the scrolling box and give it a name (for example aria-label=\"Terms and conditions\") so it works in every browser.",
+    "wcag": ["2.1.1"]
+  },
+  "frame-focusable-content": {
+    "severity": "fail",
+    "title": "Frame with focusable content is removed from the Tab order",
+    "why": "The frame has tabindex=\"-1\", so keyboard users cannot reach the links or controls inside it.",
+    "fix": "Remove tabindex=\"-1\" from the iframe.",
+    "wcag": ["2.1.1"]
+  }
+}

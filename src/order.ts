@@ -353,7 +353,7 @@ function toStop(d: Draft, index: number): Stop {
 }
 
 /** Why a focusable element would not be seen, or null. Checked in its unfocused state. */
-function invisibility(el: Element): string | null {
+export function invisibility(el: Element): string | null {
   const r = el.getBoundingClientRect();
   if (r.width === 0 && r.height === 0) return 'it has zero size';
   if (r.right + window.scrollX <= 0 || r.bottom + window.scrollY <= 0) return 'it is positioned off-screen';
@@ -398,7 +398,7 @@ function safeMatches(el: Element, selector: string): boolean {
   }
 }
 
-function composedParent(n: Element): Element | null {
+export function composedParent(n: Element): Element | null {
   if (n.parentElement) return n.parentElement;
   const root = n.getRootNode();
   return root instanceof ShadowRoot ? root.host : null;

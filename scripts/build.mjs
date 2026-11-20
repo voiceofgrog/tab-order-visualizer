@@ -12,16 +12,24 @@ const dist = `${root}dist`;
 await rm(dist, { recursive: true, force: true });
 await mkdir(`${dist}/extension`, { recursive: true });
 
-await build({
-  entryPoints: [`${root}src/main.ts`],
-  outfile: `${dist}/tov.js`,
-  bundle: true,
-  format: 'iife',
-  target: 'es2020',
-  minify: true,
-  legalComments: 'none',
-  logLevel: 'warning',
-});
+const common = { bundle: true, format: 'iife', target: 'es2020', minify: true, logLevel: 'warning' };
+// Core build (no axe-core): small enough for a bookmarklet.
+await build({ ...common, entryPoints: [`${root}src/main.ts`], outfile: `${dist}/tov.js`, legalComments: 'none' });
+// Full build (with axe-core): demo pages, tests and the extension.
+await build({ ...common, entryPoints: [`${root}src/main-full.ts`], outfile: `${dist}/tov-full.js`, legalComments: 'eof' });
+
+// axe-core is MPL-2.0: ship its license texts alongside any bundle that contains it.
+const axeDir = `${root}node_modules/axe-core`;
+const axeVersion = JSON.parse(await readFile(`${axeDir}/package.json`, 'utf8')).version;
+const thirdParty = [
+  `This bundle includes axe-core ${axeVersion}, unmodified, under the Mozilla Public License 2.0.`,
+  'Source: https://github.com/dequelabs/axe-core',
+  '',
+  await readFile(`${axeDir}/LICENSE`, 'utf8'),
+  '',
+  await readFile(`${axeDir}/LICENSE-3RD-PARTY.txt`, 'utf8'),
+].join('\n');
+await writeFile(`${dist}/THIRD-PARTY-LICENSES.txt`, thirdParty);
 
 const code = (await readFile(`${dist}/tov.js`, 'utf8')).trim();
 const bookmarklet =
@@ -46,8 +54,10 @@ a.bm{display:inline-block;padding:.5rem 1rem;border:2px solid #1a1a5e;border-rad
 
 await copyFile(`${root}extension/manifest.json`, `${dist}/extension/manifest.json`);
 await copyFile(`${root}extension/background.js`, `${dist}/extension/background.js`);
-await copyFile(`${dist}/tov.js`, `${dist}/extension/tov.js`);
+await copyFile(`${dist}/tov-full.js`, `${dist}/extension/tov-full.js`);
+await copyFile(`${dist}/THIRD-PARTY-LICENSES.txt`, `${dist}/extension/THIRD-PARTY-LICENSES.txt`);
 
 const kb = (n) => `${(n / 1024).toFixed(1)} KB`;
 console.log(`tov.js           ${kb(Buffer.byteLength(code))}`);
 console.log(`bookmarklet.txt  ${kb(Buffer.byteLength(bookmarklet))}`);
+console.log(`tov-full.js      ${kb((await readFile(`${dist}/tov-full.js`)).length)}`);

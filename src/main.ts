@@ -5,11 +5,15 @@
  */
 import { computeOrder, type OrderResult } from './order';
 import { Overlay } from './overlay';
+import { scan } from './scan';
+import type { ScanResult } from './types';
 
 export interface TabOrderVizApi {
   version: string;
-  /** Computes the Tab order without drawing anything. */
+  /** Computes the Tab order without drawing or touching anything. */
   compute(root?: Element): OrderResult;
+  /** Full scan: order, focus measurements, suggested order and issues. */
+  scan(): Promise<ScanResult>;
   show(): void;
   hide(): void;
   toggle(): void;
@@ -26,11 +30,12 @@ declare global {
 if (!window.TabOrderViz) {
   let overlay: Overlay | null = null;
   const api: TabOrderVizApi = {
-    version: '0.1.0',
+    version: '0.2.0',
     compute: (root) => computeOrder(root),
+    scan: () => scan(),
     show() {
       if (overlay) overlay.setVisible(true);
-      else overlay = new Overlay(() => computeOrder(), () => (overlay = null));
+      else overlay = new Overlay(scan, () => (overlay = null));
     },
     hide() {
       overlay?.setVisible(false);

@@ -20,6 +20,8 @@
 import config from '../config/defaults.json';
 import wcag from '../config/wcag.json';
 import { OVERLAY_TAG, type Stop } from './order';
+import { contains } from './checks';
+import { estimate, formatSeconds, PROFILES, skipLinkEstimate } from './time';
 import type { Issue, ScanResult, Severity } from './types';
 
 interface Palette { label: string; real: string; realText: string; suggested: string; suggestedText: string; halo: string }
@@ -78,7 +80,8 @@ fieldset { border: 0; margin: 0 0 6px; padding: 0; }
 legend { padding: 0; font-weight: 600; }
 .row { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin-bottom: 6px; }
 label { cursor: pointer; }
-select { font: inherit; font-size: 13px; }
+select { font: inherit; font-size: 13px; max-width: 100%; }
+.row > label { max-width: 100%; }
 .sample { display: inline-block; min-width: 18px; height: 18px; box-sizing: border-box; padding: 0 3px; vertical-align: middle;
   font: 700 11px/14px system-ui, sans-serif; text-align: center; border: 2px solid #1a1a5e; }
 .sample.real { border-radius: 9px; background: #1a1a5e; color: #fff; }
@@ -101,6 +104,12 @@ summary { cursor: pointer; }
   font-size: 11px; font-weight: 700; text-align: center; text-transform: uppercase; border: 1px solid; }
 .sev.fail { background: #fde8e8; color: #8a1010; }
 .sev.review { background: #fff4d6; color: #6b4a00; }
+table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 13px; }
+th, td { text-align: left; padding: 3px 4px; border-bottom: 1px solid #d8d8e4; vertical-align: top; }
+thead th { font-size: 12px; color: #333333; }
+tbody th { font-weight: 600; }
+.basis { padding-left: 16px; list-style: disc; }
+.basis li { margin-bottom: 4px; }
 .sev.advice { background: #e8f0fe; color: #1a3d8a; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 `;
@@ -119,6 +128,13 @@ export class Overlay {
   private issuesNote!: HTMLParagraphElement;
   private issuesList!: HTMLUListElement;
   private toggleButton!: HTMLButtonElement;
+  private targetSelect!: HTMLSelectElement;
+  private pickButton!: HTMLButtonElement;
+  private pickHint!: HTMLParagraphElement;
+  private timeBody!: HTMLTableSectionElement;
+  private timeNotes!: HTMLDivElement;
+  private basisList!: HTMLUListElement;
+  private picking = false;
 
   private result: ScanResult | null = null;
   private realBadges: HTMLDivElement[] = [];
@@ -192,6 +208,7 @@ export class Overlay {
 
   destroy(): void {
     this.generation++;
+    if (this.picking) this.stopPicking('');
     window.removeEventListener('scroll', this.schedule, { capture: true });
     window.removeEventListener('resize', this.schedule);
     this.resizeObserver.disconnect();
@@ -253,6 +270,8 @@ export class Overlay {
     this.stepOut.setAttribute('aria-live', 'polite');
     step.append(stepTitle, stepButtons, this.stepOut);
 
+    const time = this.buildTimeSection();
+
     const issues = el('div', 'section');
     this.issuesTitle = el('p', 'title');
     this.issuesTitle.textContent = 'Issues';
@@ -269,9 +288,170 @@ export class Overlay {
       button('Close', () => this.destroy()),
     );
 
-    panel.append(title, this.status, viewSet, toggles, selects, key, step, issues, actions);
+    panel.append(title, this.status, viewSet, toggles, selects, key, step, time, issues, actions);
     return panel;
   }
+
+  private buildTimeSection(): HTMLDivElement {
+    const section = el('div', 'section');
+    const title = el('p', 'title');
+    title.textContent = 'Time to reach (estimate)';
+    const row = el('div', 'row');
+    const label = el('label', '');
+    this.targetSelect = el('select', '');
+    this.targetSelect.addEventListener('change', () => this.setTarget(Number(this.targetSelect.value), false));
+    label.append('Target ', this.targetSelect);
+    this.pickButton = button('Pick on page', () => this.startPicking());
+    row.append(label, this.pickButton);
+    this.pickHint = el('p', 'small');
+    this.pickHint.setAttribute('aria-live', 'polite');
+
+    const table = el('table', '');
+    const head = el('thead', '');
+    const hr = el('tr', '');
+    for (const h of ['Profile', 'To reach', 'Whole page']) {
+      const th = el('th', '');
+      th.scope = 'col';
+      th.textContent = h;
+      hr.append(th);
+    }
+    head.append(hr);
+    this.timeBody = el('tbody', '');
+    table.append(head, this.timeBody);
+
+    this.timeNotes = el('div', '');
+    const how = el('details', '');
+    const howSummary = el('summary', '');
+    howSummary.textContent = 'How this is estimated';
+    const formula = el('p', 'small');
+    formula.textContent =
+      'Each Tab stop costs one key press, plus time to hear the screen reader announce it (words ÷ speech rate), ' +
+      'or for sighted users, time to spot the focus on screen. Time to reach = the sum for every stop up to the target. ' +
+      'Change the numbers in config/defaults.json.';
+    this.basisList = el('ul', 'small basis');
+    how.append(howSummary, formula, this.basisList);
+    const caveat = el('p', 'small');
+    caveat.textContent = 'A model, not a measurement. Real times vary a lot between people, devices and screen readers.';
+    section.append(title, row, this.pickHint, table, this.timeNotes, how, caveat);
+    return section;
+  }
+
+  /** Fills the target list and picks a default: the first stop in <main>, else the last stop. */
+  private renderTime(r: ScanResult): void {
+    const { stops } = r.order;
+    this.targetSelect.replaceChildren(
+      ...stops.map((s) => {
+        const o = el('option', '');
+        o.value = String(s.index);
+        o.textContent = `${s.index}. ${s.label}`;
+        return o;
+      }),
+    );
+    this.basisList.replaceChildren(
+      ...PROFILES.map((p) => {
+        const li = el('li', '');
+        const b = el('strong', '');
+        b.textContent = `${p.label}: `;
+        li.append(b, `${p.secondsPerTab} s per Tab` + (p.wordsPerMinute ? `, ${p.wordsPerMinute} words/min` : '') +
+          (p.maxWordsHeard ? `, hears first ${p.maxWordsHeard} words` : '') +
+          (p.visualSecondsPerStop ? `, ${p.visualSecondsPerStop} s to spot focus` : '') + `. ${p.basis}`);
+        return li;
+      }),
+    );
+    const main = document.querySelector('main, [role=main]');
+    const inMain = main ? stops.find((s) => contains(main, s.element)) : undefined;
+    const fallback = inMain ?? stops[stops.length - 1];
+    if (fallback) this.setTarget(fallback.index, false);
+    else this.timeBody.replaceChildren();
+  }
+
+  private setTarget(index: number, announce: boolean): void {
+    const r = this.result;
+    const target = r?.order.stops[index - 1];
+    if (!r || !target) return;
+    this.targetSelect.value = String(index);
+    const rows = estimate(r, target).map((e) => {
+      const tr = el('tr', '');
+      const th = el('th', '');
+      th.scope = 'row';
+      th.textContent = e.profileLabel;
+      const reach = el('td', '');
+      reach.textContent = `${formatSeconds(e.reach)} (${e.reachStops} stop${e.reachStops === 1 ? '' : 's'})`;
+      const total = el('td', '');
+      total.textContent = formatSeconds(e.total);
+      tr.append(th, reach, total);
+      return tr;
+    });
+    this.timeBody.replaceChildren(...rows);
+
+    const notes: HTMLElement[] = [];
+    const ann = r.announcements.get(target);
+    if (ann) notes.push(textP(`Announced roughly as “${ann.text}” (${ann.words} words).`, 'small'));
+    const first = estimate(r, target)[0];
+    if (first.suggestedStops === null) {
+      notes.push(textP('This stop is not visible, so it has no place in the suggested order. Removing it from the Tab order saves every user a stop.'));
+    } else if (first.suggestedStops !== first.reachStops) {
+      const diff = first.reachStops - first.suggestedStops;
+      notes.push(textP(
+        `Suggested order: ${first.suggestedStops} stop${first.suggestedStops === 1 ? '' : 's'} instead of ${first.reachStops} ` +
+        `(${diff > 0 ? `${diff} fewer` : `${-diff} more, since it comes later in reading order`}; ` +
+        `${formatSeconds(Math.abs(first.reach - (first.suggestedReach ?? first.reach)))} ${diff > 0 ? 'saved' : 'added'} for a keyboard user).`,
+      ));
+    }
+    const skip = skipLinkEstimate(r);
+    if (skip) {
+      const kb = skip.perProfile[0];
+      const sr = skip.perProfile[1];
+      const saved = (p: { without: number; with: number }) => formatSeconds(Math.max(0, p.without - p.with));
+      notes.push(textP(
+        (skip.hasSkipLink ? 'The skip link' : 'A skip link would') +
+        ` cut reaching “${skip.target}” from ${skip.stopsWithout} Tab presses to ${skip.pressesWith} key presses: ` +
+        `about ${saved(kb)} saved for a sighted keyboard user and ${saved(sr)} for an everyday screen reader user, on every page visit.`,
+      ));
+    }
+    this.timeNotes.replaceChildren(...notes);
+    if (announce) this.pickHint.textContent = `Target set to stop ${index}: ${target.label}.`;
+  }
+
+  /** Next click on the page chooses the target. The click is swallowed so links do not navigate. */
+  private startPicking(): void {
+    if (this.picking) return this.stopPicking('Picking cancelled.');
+    this.picking = true;
+    this.pickButton.textContent = 'Cancel picking';
+    this.pickHint.textContent = 'Click a link, button or field on the page. Press Escape to cancel.';
+    document.addEventListener('click', this.onPickClick, true);
+    document.addEventListener('keydown', this.onPickKey, true);
+  }
+
+  private stopPicking(message: string): void {
+    this.picking = false;
+    this.pickButton.textContent = 'Pick on page';
+    this.pickHint.textContent = message;
+    document.removeEventListener('click', this.onPickClick, true);
+    document.removeEventListener('keydown', this.onPickKey, true);
+  }
+
+  private readonly onPickKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') this.stopPicking('Picking cancelled.');
+  };
+
+  private readonly onPickClick = (e: MouseEvent) => {
+    const path = e.composedPath();
+    if (path.includes(this.host) || !this.result) return; // clicks on our own panel work normally
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const stops = this.result.order.stops;
+    for (const node of path) {
+      const stop = stops.find((s) => s.element === node);
+      if (stop) {
+        this.stopPicking('');
+        this.setTarget(stop.index, true);
+        this.focusOn([stop.element]);
+        return;
+      }
+    }
+    this.stopPicking('That is not a Tab stop. Choose “Pick on page” again and click a link, button or field.');
+  };
 
   private applyDisplay(): void {
     const p = PALETTES[this.palette] ?? Object.values(PALETTES)[0];
@@ -307,6 +487,7 @@ export class Overlay {
       return b;
     });
     this.renderIssues(r);
+    this.renderTime(r);
     this.layout();
   }
 
@@ -390,6 +571,7 @@ export class Overlay {
         ? `Suggested ${this.step + 1} of ${seq.length}: ${s.label}. Currently Tab stop ${s.index}.`
         : `Stop ${s.index} of ${seq.length}: ${s.label}. ${s.reasons.join(' ')}`;
     this.focusOn([s.element]);
+    this.setTarget(s.index, false);
   }
 
   /** Highlights elements and scrolls the first into view (does not move keyboard focus). */
@@ -590,6 +772,12 @@ function select(text: string, options: [string, string][], value: string, onChan
   s.addEventListener('change', () => onChange(s.value));
   label.append(`${text} `, s);
   return label;
+}
+
+function textP(text: string, className = ''): HTMLParagraphElement {
+  const p = el('p', className);
+  p.textContent = text;
+  return p;
 }
 
 function sample(text: string, kind: 'real' | 'sugg' | 'hidden-stop'): HTMLSpanElement {

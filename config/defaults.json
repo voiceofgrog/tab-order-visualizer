@@ -1,6 +1,57 @@
 {
-  "_comment": "Adjustable settings. Timing assumptions are added in Stage 3.",
+  "_comment": "Adjustable settings.",
   "ignoreSelectors": [],
+  "timing": {
+    "_comment": "A model, not a measurement. Cost of one stop = secondsPerTab + (speech: words heard / wordsPerMinute * 60, or visualSecondsPerStop if no speech). Words heard = accessible name + spoken role (+ state), capped at maxWordsHeard if set. Activating a link (Enter) costs one secondsPerTab.",
+    "profiles": [
+      {
+        "id": "keyboard",
+        "label": "Sighted keyboard user",
+        "secondsPerTab": 0.6,
+        "wordsPerMinute": null,
+        "maxWordsHeard": null,
+        "visualSecondsPerStop": 0.3,
+        "basis": "Key press: the Keystroke-Level Model gives 0.28 s on average (Card, Moran and Newell, 1980); we add time to decide to press again. Finding the focus indicator on screen (0.3 s) is an assumption with no published source."
+      },
+      {
+        "id": "sr-everyday",
+        "label": "Screen reader, everyday",
+        "secondsPerTab": 0.5,
+        "wordsPerMinute": 180,
+        "maxWordsHeard": null,
+        "visualSecondsPerStop": 0,
+        "basis": "Listens to each full announcement at about 180 words per minute, roughly a default screen reader speech rate (assumption, not from a study)."
+      },
+      {
+        "id": "sr-expert",
+        "label": "Screen reader, expert",
+        "secondsPerTab": 0.28,
+        "wordsPerMinute": 300,
+        "maxWordsHeard": 3,
+        "visualSecondsPerStop": 0,
+        "basis": "Keystroke-Level Model average key press (0.28 s). About 300 words per minute, near the mean listening rate in a large study (Bragg et al., CHI 2018). Experts often cut speech off after a few words and move on; 3 words is an assumption."
+      }
+    ],
+    "roleSpeech": {
+      "_comment": "Approximate words a screen reader adds for each role. Real wording differs between NVDA, JAWS and VoiceOver.",
+      "link": "link",
+      "button": "button",
+      "textbox": "edit text",
+      "searchbox": "search edit text",
+      "combobox": "combo box",
+      "listbox": "list box",
+      "radio": "radio button",
+      "checkbox": "check box",
+      "switch": "switch",
+      "slider": "slider",
+      "spinbutton": "spin button",
+      "tab": "tab",
+      "menuitem": "menu item",
+      "region": "region",
+      "group": "grouping",
+      "application": "application"
+    }
+  },
   "checks": {
     "_comment": "measureFocus briefly focuses each stop (then restores focus and scroll) to test skip links and sticky headers. probeTabKey sends a synthetic Tab keydown to non-text elements to spot code that cancels Tab.",
     "measureFocus": true,

@@ -6,6 +6,7 @@
 import { computeOrder, type OrderResult } from './order';
 import { Overlay } from './overlay';
 import { scan } from './scan';
+import { estimate, skipLinkEstimate, type Announcement, type Estimate, type SkipEstimate } from './time';
 import type { ScanResult } from './types';
 
 export interface TabOrderVizApi {
@@ -14,6 +15,8 @@ export interface TabOrderVizApi {
   compute(root?: Element): OrderResult;
   /** Full scan: order, focus measurements, suggested order and issues. */
   scan(): Promise<ScanResult>;
+  /** Time model for reaching Tab stop number `index` (1-based), plus skip-link savings. */
+  estimate(index: number): Promise<{ announcement: Announcement; estimates: Estimate[]; skip: SkipEstimate | null }>;
   show(): void;
   hide(): void;
   toggle(): void;
@@ -33,6 +36,12 @@ if (!window.TabOrderViz) {
     version: '0.2.0',
     compute: (root) => computeOrder(root),
     scan: () => scan(),
+    async estimate(index) {
+      const r = await scan();
+      const target = r.order.stops[index - 1];
+      if (!target) throw new RangeError(`There is no Tab stop ${index}; the page has ${r.order.stops.length}.`);
+      return { announcement: r.announcements.get(target)!, estimates: estimate(r, target), skip: skipLinkEstimate(r) };
+    },
     show() {
       if (overlay) overlay.setVisible(true);
       else overlay = new Overlay(scan, () => (overlay = null));

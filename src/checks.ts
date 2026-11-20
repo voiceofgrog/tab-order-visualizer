@@ -292,7 +292,7 @@ function clipLabel(s: string): string {
   return s.length > 24 ? `${s.slice(0, 23)}…` : s;
 }
 
-function isSkipLink(el: Element): boolean {
+export function isSkipLink(el: Element): boolean {
   const href = el instanceof HTMLAnchorElement ? el.getAttribute('href') ?? '' : '';
   if (!/^#./.test(href)) return false;
   return !!document.getElementById(decodeURIComponent(href.slice(1)));
@@ -314,7 +314,7 @@ function positionedAncestor(el: Element): Element | null {
   return null;
 }
 
-function contains(ancestor: Element, node: Element): boolean {
+export function contains(ancestor: Element, node: Element): boolean {
   for (let n: Element | null = node; n; n = composedParent(n)) if (n === ancestor) return true;
   return false;
 }

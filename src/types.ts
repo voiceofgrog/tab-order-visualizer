@@ -1,4 +1,5 @@
 import type { OrderResult, Stop } from './order';
+import type { Announcement } from './time';
 
 /** fail = very likely a WCAG failure; review = a person should check; advice = best practice. */
 export type Severity = 'fail' | 'review' | 'advice';
@@ -28,6 +29,8 @@ export interface ScanResult {
   issues: Issue[];
   /** Real-order indices i where the step from stop i to stop i+1 jumps backwards visually. */
   jumps: Set<number>;
+  /** Roughly what a screen reader announces for each stop (input to the time model). */
+  announcements: Map<Stop, Announcement>;
   axe: 'ran' | 'not-included' | 'error';
   axeMessage?: string;
 }

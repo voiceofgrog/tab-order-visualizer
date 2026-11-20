@@ -20,6 +20,7 @@
  * display/visibility, inert, checkVisibility). The ordering and the
  * per-stop explanations are our own so the tool can say *why*.
  */
+import { computeAccessibleName } from 'dom-accessibility-api';
 import config from '../config/defaults.json';
 
 export type StopKind = 'element' | 'radio-group' | 'scroller' | 'iframe';
@@ -418,10 +419,16 @@ function squash(s: string | null | undefined): string {
 }
 
 /**
- * A rough accessible name, good enough to identify the element.
- * Stage 3 replaces this with dom-accessibility-api for proper accname results.
+ * The element's accessible name (W3C accname rules, via dom-accessibility-api), falling
+ * back to visible text, alt, title or placeholder so every stop has a usable label.
  */
 export function labelOf(el: Element): string {
+  try {
+    const name = squash(computeAccessibleName(el));
+    if (name) return clip(name);
+  } catch {
+    // fall back to the heuristic below
+  }
   const aria = squash(el.getAttribute('aria-label'));
   if (aria) return clip(aria);
   const ids = el.getAttribute('aria-labelledby');

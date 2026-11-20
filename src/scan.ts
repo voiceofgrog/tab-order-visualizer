@@ -6,6 +6,7 @@ import { getAxe, runAxe } from './axe';
 import { emptyProbe, ownIssues, probeFocus } from './checks';
 import { computeOrder } from './order';
 import { suggestOrder } from './suggest';
+import { announce } from './time';
 import type { Issue, ScanResult, Severity } from './types';
 
 const SEVERITY_RANK: Record<Severity, number> = { fail: 0, review: 1, advice: 2 };
@@ -26,6 +27,7 @@ async function doScan(): Promise<ScanResult> {
     s.reasons.push('It is hidden until focused, then appears (the usual skip-link pattern). That is fine.');
   }
   const suggested = suggestOrder(order.stops);
+  const announcements = new Map(order.stops.map((s) => [s, announce(s)]));
   const { issues, jumps } = ownIssues(order, suggested, probe);
 
   let axeIssues: Issue[] = [];
@@ -46,5 +48,5 @@ async function doScan(): Promise<ScanResult> {
     ? [...issues.filter((i) => i.rule !== 'no-skip-link'), ...axeIssues]
     : [...issues, ...axeIssues];
   all.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
-  return { order, suggested, issues: all, jumps, axe, axeMessage };
+  return { order, suggested, issues: all, jumps, announcements, axe, axeMessage };
 }

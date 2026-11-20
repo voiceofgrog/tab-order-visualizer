@@ -6,6 +6,8 @@ It draws numbered badges and arrows on the page itself, explains why each elemen
 
 **Everything runs in your browser. Nothing is sent anywhere: no network requests, no analytics, no tracking, and nothing is stored.**
 
+**Install it from the website: [voiceofgrog.github.io/tab-order-visualizer](https://voiceofgrog.github.io/tab-order-visualizer/)** (bookmarklet, extension download, and demo pages to try it on). The bookmarklet carries all its code inside itself, so once it's installed, using it never contacts the website.
+
 ## What it shows
 
 | On the page | Meaning |

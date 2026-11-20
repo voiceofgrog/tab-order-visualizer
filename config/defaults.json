@@ -1,6 +1,10 @@
 {
   "_comment": "Adjustable settings.",
   "ignoreSelectors": [],
+  "keyboard": {
+    "_comment": "Shortcut that moves focus into the panel, or back to where you were on the page. Escape inside the panel also goes back.",
+    "focusPanelShortcut": "Alt+Shift+T"
+  },
   "timing": {
     "_comment": "A model, not a measurement. Cost of one stop = secondsPerTab + (speech: words heard / wordsPerMinute * 60, or visualSecondsPerStop if no speech). Words heard = accessible name + spoken role (+ state), capped at maxWordsHeard if set. Activating a link (Enter) costs one secondsPerTab.",
     "profiles": [

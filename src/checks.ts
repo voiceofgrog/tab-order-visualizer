@@ -63,10 +63,12 @@ export function probeFocus(stops: Stop[]): Probe {
     }
   } finally {
     window.scrollTo(sx, sy);
+    // Show our overlay again *before* restoring focus: if focus was on a panel button
+    // (for example Refresh), it cannot be focused while the overlay is display: none.
+    host?.style.setProperty('display', 'block', 'important');
     const now = deepActive() as HTMLElement | null;
     if (previous && previous !== document.body) (previous as HTMLElement).focus?.({ preventScroll: true });
     else now?.blur?.();
-    host?.style.setProperty('display', 'block', 'important');
   }
   return out;
 }

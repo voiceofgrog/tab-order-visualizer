@@ -35,6 +35,28 @@ const WCAG = wcag as Record<string, { name: string; level: string; url: string }
 const SEVERITY_LABEL: Record<Severity, string> = { fail: 'Fail', review: 'Review', advice: 'Advice' };
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_SHOW_BUTTONS = 8;
+const SHORTCUT = parseShortcut(config.keyboard.focusPanelShortcut);
+const SHORTCUT_LABEL = config.keyboard.focusPanelShortcut;
+
+interface Shortcut { alt: boolean; shift: boolean; ctrl: boolean; meta: boolean; code: string }
+
+/** "Alt+Shift+T" -> modifiers plus a physical key code, so it also works on Mac (Option changes e.key). */
+function parseShortcut(text: string): Shortcut {
+  const parts = text.split('+').map((p) => p.trim().toLowerCase());
+  const key = parts[parts.length - 1];
+  const code = /^[a-z]$/.test(key) ? `Key${key.toUpperCase()}` : /^\d$/.test(key) ? `Digit${key}` : key;
+  return { alt: parts.includes('alt'), shift: parts.includes('shift'), ctrl: parts.includes('ctrl'), meta: parts.includes('meta'), code };
+}
+
+function matchesShortcut(e: KeyboardEvent, s: Shortcut): boolean {
+  return e.code === s.code && e.altKey === s.alt && e.shiftKey === s.shift && e.ctrlKey === s.ctrl && e.metaKey === s.meta;
+}
+
+function deepActive(): Element | null {
+  let a = document.activeElement;
+  while (a?.shadowRoot?.activeElement) a = a.shadowRoot.activeElement;
+  return a;
+}
 
 const STYLE = `
 :host { all: initial; }
@@ -71,6 +93,11 @@ svg { position: absolute; top: 0; left: 0; overflow: visible; }
   font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; text-align: left;
 }
 .panel.left { right: auto; left: 12px; }
+.panel:focus { outline: 3px solid #1a1a5e; outline-offset: 2px; }
+@media (forced-colors: active) {
+  .layer { forced-color-adjust: none; }
+  .panel { border-color: CanvasText; }
+}
 .panel p { margin: 0 0 6px; }
 .panel a { color: #1a1a5e; }
 .title { font-weight: 700; font-size: 15px; }
@@ -136,6 +163,7 @@ export class Overlay {
   private timeNotes!: HTMLDivElement;
   private basisList!: HTMLUListElement;
   private picking = false;
+  private returnTo: Element | null = null;
 
   private result: ScanResult | null = null;
   private realBadges: HTMLDivElement[] = [];
@@ -183,8 +211,39 @@ export class Overlay {
     window.addEventListener('resize', this.schedule, { passive: true });
     this.resizeObserver = new ResizeObserver(this.schedule);
     this.resizeObserver.observe(document.body);
-    void this.refresh();
+    document.addEventListener('keydown', this.onShortcut, true);
+    // Keyboard users land in the panel straight away (they just invoked the tool).
+    void this.refresh().then(() => this.focusPanel());
   }
+
+  /** Moves focus into the panel, remembering where it was on the page. */
+  focusPanel(): void {
+    if (!this.host.isConnected) return;
+    // While focus is anywhere in our Shadow DOM, the document reports the host as active
+    // (Node.contains does not look inside shadow roots, so it cannot answer this).
+    if (!this.focusInside()) this.returnTo = deepActive();
+    this.panel.focus({ preventScroll: true });
+  }
+
+  private focusInside(): boolean {
+    return document.activeElement === this.host;
+  }
+
+  /** Sends focus back to where it was on the page before the panel took it. */
+  private returnFocus(): void {
+    const target = this.returnTo as HTMLElement | null;
+    this.returnTo = null;
+    if (target?.isConnected && typeof target.focus === 'function') target.focus({ preventScroll: true });
+    else (document.activeElement as HTMLElement | null)?.blur?.();
+  }
+
+  private readonly onShortcut = (e: KeyboardEvent) => {
+    if (!matchesShortcut(e, SHORTCUT)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (this.focusInside()) this.returnFocus();
+    else this.focusPanel();
+  };
 
   setVisible(visible: boolean): void {
     this.layer.hidden = !visible;
@@ -212,9 +271,12 @@ export class Overlay {
     if (this.picking) this.stopPicking('');
     window.removeEventListener('scroll', this.schedule, { capture: true });
     window.removeEventListener('resize', this.schedule);
+    document.removeEventListener('keydown', this.onShortcut, true);
+    const hadFocus = this.focusInside();
     this.resizeObserver.disconnect();
     cancelAnimationFrame(this.frame);
     this.host.remove();
+    if (hadFocus) this.returnFocus(); // closing from the panel: do not strand keyboard focus
     this.onClose();
   }
 
@@ -224,9 +286,18 @@ export class Overlay {
     const panel = (this.panel = el('div', 'panel'));
     panel.setAttribute('role', 'region');
     panel.setAttribute('aria-label', 'Tab order visualizer');
+    panel.tabIndex = -1; // focusable by script (on open, shortcut), not an extra Tab stop
+    panel.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !this.picking) {
+        e.preventDefault();
+        this.returnFocus();
+      }
+    });
 
     const title = el('p', 'title');
     title.textContent = 'Tab order';
+    const keys = el('p', 'small');
+    keys.textContent = `${SHORTCUT_LABEL}: move between the page and this panel. Escape: back to the page.`;
     this.status = el('p', 'status');
     this.status.setAttribute('role', 'status');
     this.notesBox = el('div', 'small');
@@ -290,7 +361,7 @@ export class Overlay {
       button('Close', () => this.destroy()),
     );
 
-    panel.append(title, this.status, this.notesBox, viewSet, toggles, selects, key, step, time, issues, actions);
+    panel.append(title, keys, this.status, this.notesBox, viewSet, toggles, selects, key, step, time, issues, actions);
     return panel;
   }
 

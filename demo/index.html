@@ -104,6 +104,11 @@
     </div>
   </section>
 
+  <!-- A closed off-canvas menu: scrollable but visibility: hidden, so not a Tab stop. -->
+  <div style="visibility:hidden; position:absolute; left:-400px; width:300px; height:80px; overflow:auto">
+    <p>Hidden menu</p><p>Line 2</p><p>Line 3</p><p>Line 4</p><p>Line 5</p>
+  </div>
+
   <section aria-labelledby="trap-h">
     <h2 id="trap-h">Keyboard trap</h2>
     <!-- Problem: once focused, Tab and Shift+Tab cannot leave (WCAG 2.1.2). Add ?trap=off to disable. -->

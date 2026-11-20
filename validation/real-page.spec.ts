@@ -15,34 +15,65 @@ import type {} from '../src/main';
 
 const URL_TO_TEST = process.env.VALIDATE_URL ?? 'https://example.edu/';
 const MAX_PRESSES = Number(process.env.VALIDATE_MAX_PRESSES ?? 250);
+const DISMISS = process.env.VALIDATE_DISMISS ?? '';
 
 test(`tool order vs real Tab presses on ${URL_TO_TEST}`, async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto(URL_TO_TEST, { waitUntil: 'load' });
+  // Optional, and only with the owner's go-ahead: click one named button first (for example a
+  // cookie banner's "reject" button). The test browser profile is fresh and discarded afterwards.
+  if (DISMISS) {
+    const button = page.getByRole('button', { name: DISMISS, exact: true });
+    await button.click();
+    await expect(button).toBeHidden();
+  }
   await page.evaluate(await readFile('dist/tov-full.js', 'utf8'));
   await expect.poll(() => page.evaluate(() => typeof window.TabOrderViz)).toBe('object');
 
   const tool = await page.evaluate(async () => {
-    const r = (await window.TabOrderViz!.scan()).order;
-    (window as unknown as { __stops: Element[] }).__stops = r.stops.map((s) => s.element);
+    const full = await window.TabOrderViz!.scan();
+    const r = full.order;
+    const w = window as unknown as { __stops: Element[]; __covered: Set<Element> };
+    w.__stops = r.stops.map((s) => s.element);
+    w.__covered = new Set(full.issues.filter((i) => i.rule === 'focus-obscured').flatMap((i) => i.elements));
     return { labels: r.stops.map((s) => `${s.label} <${s.element.localName}>`), kinds: r.stops.map((s) => s.kind), notes: r.notes, skipped: r.skipped.length };
   });
 
-  const presses = Math.min(tool.labels.length + 20, MAX_PRESSES);
-  const actual: { i: number; desc: string }[] = [];
+  // Keep pressing until focus leaves the page; presses inside iframes (ads) do not advance the
+  // parent page, so the budget must be well above the number of stops. MAX_PRESSES is a cap.
+  const presses = MAX_PRESSES;
+  const actual: { i: number; desc: string; presses: number }[] = [];
+  // Ground truth for "focus hidden under other content" while tabbing forwards.
+  const covered = { truth: 0, toolAgrees: 0, truthOnly: [] as string[], toolOnly: [] as string[] };
   for (let n = 0; n < presses; n++) {
     await page.keyboard.press('Tab');
     const hit = await page.evaluate(() => {
       let a: Element | null = document.activeElement;
       while (a?.shadowRoot?.activeElement) a = a.shadowRoot.activeElement;
-      if (!a || a === document.body) return { i: -2, desc: 'BODY' };
-      const i = (window as unknown as { __stops: Element[] }).__stops.indexOf(a);
+      if (!a || a === document.body) return { i: -2, desc: 'BODY', covered: false, toolSaysCovered: false };
+      const w = window as unknown as { __stops: Element[]; __covered: Set<Element> };
+      const i = w.__stops.indexOf(a);
       const text = (a.getAttribute('aria-label') ?? a.textContent ?? a.getAttribute('title') ?? '').replace(/\s+/g, ' ').trim().slice(0, 50);
-      return { i, desc: `${text} <${a.localName}${a.id ? '#' + a.id : ''}>` };
+      const r = a.getBoundingClientRect();
+      const l = Math.max(r.left, 0) + 2, rt = Math.min(r.right, innerWidth) - 2, t = Math.max(r.top, 0) + 2, b = Math.min(r.bottom, innerHeight) - 2;
+      const related = (h: Element | null) => !!h && (h === a || a!.contains(h) || h.contains(a!) || (a!.getRootNode() as ShadowRoot).host === h);
+      const pts = [[(l + rt) / 2, (t + b) / 2], [l, t], [rt, t], [l, b], [rt, b]];
+      const isCovered = a.localName !== 'iframe' && rt > l && b > t && pts.every(([x, y]) => !related(document.elementFromPoint(x, y)));
+      return { i, desc: `${text} <${a.localName}${a.id ? '#' + a.id : ''}>`, covered: isCovered, toolSaysCovered: w.__covered.has(a) };
     });
+    if (hit.covered) {
+      covered.truth++;
+      if (hit.toolSaysCovered) covered.toolAgrees++;
+      else covered.truthOnly.push(hit.desc);
+    } else if (hit.toolSaysCovered && hit.i >= 0) {
+      covered.toolOnly.push(hit.desc);
+    }
     const last = actual[actual.length - 1];
-    if (last && last.i === hit.i && last.desc === hit.desc) continue; // still inside the same iframe
-    actual.push(hit);
+    if (last && last.i === hit.i && last.desc === hit.desc) {
+      last.presses++; // still inside the same iframe
+      continue;
+    }
+    actual.push({ i: hit.i, desc: hit.desc, presses: 1 });
     if (hit.i === -2 && n > 5) break; // focus left the page: one full pass done
   }
 
@@ -79,9 +110,12 @@ test(`tool order vs real Tab presses on ${URL_TO_TEST}`, async ({ page }) => {
     browserStopsSeen: actual.filter((a) => a.i !== -2).length,
     agreement: { commonSubsequence: lcs, exactPrefix: prefix, unlistedCount: unlisted.length, neverReachedCount: neverReached.length },
     firstDivergence,
-    unlisted: unlisted.slice(0, 40),
-    neverReached: neverReached.slice(0, 40),
-    browserSequence: actual.map((a) => (a.i >= 0 ? `#${a.i + 1}` : a.i === -1 ? `UNLISTED ${a.desc}` : 'BODY')).slice(0, 300),
+    coveredWhileTabbingForwards: { ...covered, toolTotalCovered: await page.evaluate(() => (window as unknown as { __covered: Set<Element> }).__covered.size) },
+    unlisted,
+    neverReached,
+    browserSequence: actual.map((a) => (a.i >= 0 ? `#${a.i + 1}` : a.i === -1 ? `UNLISTED ${a.desc}` : 'BODY') + (a.presses > 1 ? ` x${a.presses}` : '')),
+    /** Stops where several Tab presses stayed on the same element (normally an iframe with its own links). */
+    longStays: actual.filter((a) => a.presses > 3).map((a) => `${a.i >= 0 ? `#${a.i + 1} ${tool.labels[a.i]}` : a.desc}: ${a.presses} presses`),
     scan,
   };
   const host = new URL(URL_TO_TEST).hostname.replace(/[^a-z0-9.-]/gi, '_');

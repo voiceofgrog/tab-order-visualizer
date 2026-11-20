@@ -178,7 +178,9 @@ function visit(el: Element, ctx: Ctx, items: Item[], skipped: Skipped[], notes: 
 
   // Chrome (130+) and Firefox make a scrollable area with nothing focusable inside a
   // Tab stop, so keyboard users can scroll it.
-  if (!item.stop && tab === null && below === 0 && !inert && !ctx.closedDetails && isScrollContainer(el, cs)) {
+  // (A hidden scroll box cannot take focus, like any other hidden element.)
+  const shown = cs.visibility === 'visible' && (typeof el.checkVisibility !== 'function' || el.checkVisibility());
+  if (!item.stop && tab === null && below === 0 && !inert && !ctx.closedDetails && shown && isScrollContainer(el, cs)) {
     item.stop = {
       element: el,
       tabindex: 0,

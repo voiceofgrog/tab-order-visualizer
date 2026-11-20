@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tab order demo: script-managed consent dialog</title>
+<style>
+  body { margin: 0; font: 18px/1.5 Georgia, serif; }
+  main { max-width: 40rem; margin: 2rem auto; }
+  .consent { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 3px solid #333; padding: 1rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Page behind a consent dialog</h1>
+  <p><a href="#one">First page link</a> <a href="#two">Second page link</a></p>
+</main>
+<!-- Like many cookie banners: a div marked as a modal dialog, with script that keeps Tab inside.
+     Add ?trap=off to keep the aria-modal markup but drop the script trap. -->
+<div class="consent" role="dialog" aria-modal="true" aria-label="Privacy">
+  <p>We use cookies. <a href="#policy">Privacy policy</a></p>
+  <button type="button">Reject non-essential</button>
+  <button type="button">Accept cookies</button>
+</div>
+<script>
+  const dialog = document.querySelector('.consent');
+  if (new URLSearchParams(location.search).get('trap') !== 'off') {
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const items = [...dialog.querySelectorAll('a, button')];
+      const i = items.indexOf(document.activeElement);
+      e.preventDefault();
+      const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i + 1) % items.length;
+      items[next].focus();
+    });
+  }
+</script>
+<script src="/dist/tov-full.js"></script>
+</body>
+</html>

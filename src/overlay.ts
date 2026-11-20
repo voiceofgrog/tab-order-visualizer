@@ -124,6 +124,7 @@ export class Overlay {
   private panel!: HTMLDivElement;
   private status!: HTMLParagraphElement;
   private stepOut!: HTMLParagraphElement;
+  private notesBox!: HTMLDivElement;
   private issuesTitle!: HTMLParagraphElement;
   private issuesNote!: HTMLParagraphElement;
   private issuesList!: HTMLUListElement;
@@ -228,6 +229,7 @@ export class Overlay {
     title.textContent = 'Tab order';
     this.status = el('p', 'status');
     this.status.setAttribute('role', 'status');
+    this.notesBox = el('div', 'small');
 
     const viewSet = el('fieldset', '');
     const legend = el('legend', '');
@@ -288,7 +290,7 @@ export class Overlay {
       button('Close', () => this.destroy()),
     );
 
-    panel.append(title, this.status, viewSet, toggles, selects, key, step, time, issues, actions);
+    panel.append(title, this.status, this.notesBox, viewSet, toggles, selects, key, step, time, issues, actions);
     return panel;
   }
 
@@ -471,6 +473,7 @@ export class Overlay {
     const hiddenCount = stops.filter((s) => s.hidden).length;
     this.status.textContent =
       `${stops.length} Tab stop${stops.length === 1 ? '' : 's'}` + (hiddenCount ? `, ${hiddenCount} focusable but not visible` : '') + '.';
+    this.notesBox.replaceChildren(...r.order.notes.map((n) => textP(n, 'small')));
 
     this.realBox.replaceChildren();
     this.realBadges = stops.map((s) => {

@@ -173,19 +173,37 @@ export function ownIssues(order: OrderResult, suggested: Stop[], probe: Probe): 
     });
   }
 
-  for (const t of probe.trapped) {
-    const stuck = t.forward && t.backward && !t.moved;
+  // Group trap findings: "stuck" (Tab cancelled, focus stays) vs "managed" (script cancels Tab
+  // and moves focus itself, as modal dialogs and custom widgets do). One issue per group.
+  const stuck = probe.trapped.filter((t) => t.forward && t.backward && !t.moved);
+  const managed = probe.trapped.filter((t) => !stuck.includes(t));
+  const trapNote = 'Detected by sending a simulated Tab key. Traps built other ways (for example moving focus back on blur) are not detected yet.';
+  if (stuck.length) {
+    const names = stuck.slice(0, 5).map((t) => `"${t.stop.label}"`).join(', ') + (stuck.length > 5 ? ', …' : '');
     add({
       rule: 'keyboard-trap',
-      severity: stuck ? 'fail' : 'review',
-      title: stuck ? 'Keyboard trap' : 'Possible keyboard trap',
-      summary:
-        `Page code cancels ${t.forward && t.backward ? 'both Tab and Shift+Tab' : t.forward ? 'the Tab key' : 'Shift+Tab'} on "${t.stop.label}"` +
-        (t.moved ? ' and moves focus itself (this is normal inside a modal dialog).' : ', and focus stays put. Keyboard users get stuck here unless another key lets them out.'),
+      severity: 'fail',
+      title: 'Keyboard trap',
+      summary: `Page code cancels both Tab and Shift+Tab on ${names}, and focus stays put. Keyboard users get stuck unless another key lets them out.`,
       fix: 'Do not cancel the Tab key. If a widget really needs Tab (such as a code editor), provide a documented way out, for example Escape then Tab, and say so on screen.',
-      note: 'Detected by sending a simulated Tab key. Traps built other ways (for example moving focus back on blur) are not detected yet.',
+      note: trapNote,
       wcag: ['2.1.2'],
-      elements: [t.stop.element],
+      elements: stuck.map((t) => t.stop.element),
+    });
+  }
+  if (managed.length) {
+    add({
+      rule: 'tab-managed',
+      severity: 'review',
+      title: 'Page script takes over the Tab key',
+      summary:
+        `On ${managed.length} element${managed.length === 1 ? '' : 's'}, page code cancels the Tab key` +
+        (managed.some((t) => t.moved) ? ' and moves focus itself' : '') +
+        '. That is normal inside a modal dialog or a custom widget, but check that the order it creates makes sense and that users can always get out.',
+      fix: 'Press Tab and Shift+Tab through these elements yourself. If focus jumps somewhere unexpected or cannot leave, fix the script; otherwise no change is needed.',
+      note: trapNote,
+      wcag: ['2.1.2', '2.4.3'],
+      elements: managed.map((t) => t.stop.element),
     });
   }
 
@@ -196,6 +214,9 @@ export function ownIssues(order: OrderResult, suggested: Stop[], probe: Probe): 
     const a = visible[i];
     const b = visible[i + 1];
     if (rank.get(b)! >= rank.get(a)!) continue;
+    // A headline link and its photo link to the same article: not a meaningful jump.
+    const href = (e: Element) => (e instanceof HTMLAnchorElement ? e.href : null);
+    if (href(a.element) && href(a.element) === href(b.element)) continue;
     if (b.index === a.index + 1) jumps.add(a.index);
     const ra = a.element.getBoundingClientRect();
     const rb = b.element.getBoundingClientRect();

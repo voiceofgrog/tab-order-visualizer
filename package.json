@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "tab-order-visualizer",
   "version": "0.1.0",
   "private": true,
@@ -10,7 +10,8 @@
     "serve": "node scripts/serve.mjs",
     "test": "npm run build && playwright test --project=chromium",
     "test:firefox": "npm run build && playwright test --project=firefox",
-    "test:all": "npm run build && playwright test"
+    "test:all": "npm run build && playwright test",
+    "validate": "npm run build && playwright test --config playwright.validation.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",

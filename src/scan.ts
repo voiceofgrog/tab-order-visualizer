@@ -3,7 +3,7 @@
  */
 import config from '../config/defaults.json';
 import { emptyProbe, ownIssues, probeFocus } from './checks';
-import { computeOrder } from './order';
+import { computeOrder, labelOf } from './order';
 import { suggestOrder } from './suggest';
 import { announce } from './time';
 import type { Issue, ScanResult, Severity } from './types';
@@ -18,7 +18,7 @@ export function scan(): Promise<ScanResult> {
 }
 
 async function doScan(): Promise<ScanResult> {
-  const order = computeOrder();
+  const order = orderRespectingScriptModal();
   const probe = config.checks.measureFocus ? probeFocus(order.stops) : emptyProbe();
   for (const s of probe.visibleOnFocus) {
     s.hidden = null;
@@ -49,4 +49,59 @@ async function doScan(): Promise<ScanResult> {
     : [...issues, ...axeIssues];
   all.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   return { order, suggested, issues: all, jumps, announcements, axe, axeMessage };
+}
+
+/**
+ * Native <dialog> modals are handled by computeOrder (the browser makes the rest inert).
+ * Many sites instead build modals from a <div role="dialog" aria-modal="true"> and keep
+ * focus inside with script (cookie banners, for example). If such a dialog is visible and
+ * its script really cancels Tab, only the dialog is reachable, so only it is analysed.
+ */
+function orderRespectingScriptModal() {
+  if (!config.checks.probeTabKey) return computeOrder();
+  const dialogs = Array.from(document.querySelectorAll('[aria-modal="true"]')).filter((d) => {
+    if (!d.matches('[role=dialog], [role=alertdialog], dialog')) return false;
+    const r = d.getBoundingClientRect();
+    return (typeof d.checkVisibility !== 'function' || d.checkVisibility()) && r.width > 0 && r.height > 0;
+  });
+  const dialog = dialogs[dialogs.length - 1];
+  if (!dialog) return computeOrder();
+  const name = labelOf(dialog);
+  if (scriptKeepsFocusInside(dialog)) {
+    const order = computeOrder(dialog);
+    order.notes.unshift(
+      `A modal dialog ("${name}") is open and its script keeps keyboard focus inside it, so only the dialog is analysed. ` +
+        'Keyboard users must deal with it before reaching the page. Close it, then press Refresh to see the rest of the page.',
+    );
+    return order;
+  }
+  const order = computeOrder();
+  order.notes.unshift(
+    `A dialog ("${name}") is marked aria-modal="true", but keyboard focus can leave it. ` +
+      'Screen readers may hide the rest of the page while Tab still reaches it, which is confusing.',
+  );
+  return order;
+}
+
+/** Sends a simulated Tab from the dialog's last stop and Shift+Tab from its first. */
+function scriptKeepsFocusInside(dialog: Element): boolean {
+  const stops = computeOrder(dialog).stops;
+  if (!stops.length) return false;
+  const previous = document.activeElement as HTMLElement | null;
+  const sx = window.scrollX;
+  const sy = window.scrollY;
+  const tryKey = (el: Element, shift: boolean) => {
+    (el as HTMLElement).focus?.({ preventScroll: true });
+    const ev = new KeyboardEvent('keydown', { key: 'Tab', code: 'Tab', shiftKey: shift, bubbles: true, cancelable: true, composed: true });
+    for (const p of ['keyCode', 'which']) Object.defineProperty(ev, p, { get: () => 9 });
+    el.dispatchEvent(ev);
+    return ev.defaultPrevented;
+  };
+  try {
+    return tryKey(stops[stops.length - 1].element, false) && tryKey(stops[0].element, true);
+  } finally {
+    if (previous && previous !== document.body) previous.focus({ preventScroll: true });
+    else (document.activeElement as HTMLElement | null)?.blur?.();
+    window.scrollTo(sx, sy);
+  }
 }

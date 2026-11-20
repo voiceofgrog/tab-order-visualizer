@@ -129,6 +129,41 @@ test.describe('false-positive check on the well-built demo', () => {
   });
 });
 
+test.describe('script-managed modal dialog (like a cookie banner)', () => {
+  test('only the dialog is analysed when its script keeps focus inside', async ({ page }) => {
+    await page.goto('/demo/modal.html');
+    const r = await page.evaluate(async () => {
+      const s = await window.TabOrderViz!.scan();
+      return { labels: s.order.stops.map((x) => x.label), notes: s.order.notes, issues: s.issues.map((i) => `${i.rule} (${i.elements.length})`) };
+    });
+    expect(r.labels).toEqual(['Privacy policy', 'Reject non-essential', 'Accept cookies']);
+    expect(r.notes[0]).toMatch(/^A modal dialog \("Privacy"\) is open and its script keeps keyboard focus inside it/);
+    expect(r.issues).toContain('tab-managed (3)');
+    expect(r.issues.filter((i) => i.startsWith('keyboard-trap'))).toEqual([]);
+
+    await page.evaluate(() => window.TabOrderViz!.show());
+    await expect(page.getByRole('region', { name: 'Tab order visualizer' }).getByText(/^A modal dialog \("Privacy"\) is open/)).toBeVisible();
+
+    // Ground truth: real Tab presses cycle through exactly those three.
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      await page.keyboard.press('Tab');
+      seen.push(await page.evaluate(() => document.activeElement?.textContent?.trim() ?? ''));
+    }
+    expect(seen).toEqual(['Privacy policy', 'Reject non-essential', 'Accept cookies', 'Privacy policy']);
+  });
+
+  test('a dialog marked modal without a focus trap is reported, not assumed', async ({ page }) => {
+    await page.goto('/demo/modal.html?trap=off');
+    const r = await page.evaluate(async () => {
+      const s = await window.TabOrderViz!.scan();
+      return { count: s.order.stops.length, notes: s.order.notes };
+    });
+    expect(r.count).toBe(5);
+    expect(r.notes[0]).toMatch(/marked aria-modal="true", but keyboard focus can leave it/);
+  });
+});
+
 test.describe('panel controls', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/demo/index.html');

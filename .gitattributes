@@ -1,0 +1,6 @@
+# Store text files with LF in the repo and check them out with LF,
+# regardless of any global core.autocrlf setting. Keeps the repo cross-platform.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary

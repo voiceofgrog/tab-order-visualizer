@@ -21,7 +21,7 @@ interface AxeResults {
   violations: AxeRuleResult[];
   incomplete: AxeRuleResult[];
 }
-interface AxeLike {
+export interface AxeLike {
   run(context: unknown, options: unknown): Promise<AxeResults>;
 }
 interface RuleText {
@@ -35,9 +35,6 @@ interface RuleText {
 
 const RULES = rules as unknown as Record<string, RuleText>;
 
-export function getAxe(): AxeLike | null {
-  return (window as unknown as { __tovAxe?: AxeLike }).__tovAxe ?? null;
-}
 
 export async function runAxe(axe: AxeLike): Promise<Issue[]> {
   const res = await axe.run(

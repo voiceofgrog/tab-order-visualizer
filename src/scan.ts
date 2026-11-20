@@ -2,7 +2,6 @@
  * One full scan: Tab order -> focus measurements -> suggested order -> issues (ours + axe).
  */
 import config from '../config/defaults.json';
-import { getAxe, runAxe } from './axe';
 import { emptyProbe, ownIssues, probeFocus } from './checks';
 import { computeOrder } from './order';
 import { suggestOrder } from './suggest';
@@ -33,10 +32,11 @@ async function doScan(): Promise<ScanResult> {
   let axeIssues: Issue[] = [];
   let axe: ScanResult['axe'] = 'not-included';
   let axeMessage: string | undefined;
-  const engine = getAxe();
-  if (engine) {
+  // The full build registers an axe runner; the bookmarklet build has none (keeps it small).
+  const runAxe = (window as unknown as { __tovAxeRunner?: () => Promise<Issue[]> }).__tovAxeRunner;
+  if (runAxe) {
     try {
-      axeIssues = await runAxe(engine);
+      axeIssues = await runAxe();
       axe = 'ran';
     } catch (e) {
       axe = 'error';

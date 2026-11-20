@@ -144,6 +144,10 @@ Results go to `reports/`, which git ignores.
 
 Demo pages: `demo/index.html` (deliberately broken), `demo/good.html` (well built), `demo/modal.html` (script-managed cookie dialog), `demo/csp.html` (strict Content Security Policy).
 
+## License
+
+MIT, see [LICENSE](LICENSE). Bundled third-party code keeps its own license (below).
+
 ## Third-party code
 
 - **[axe-core](https://github.com/dequelabs/axe-core)** (MPL-2.0), unmodified, in the full build and extension. Its license texts are shipped as `THIRD-PARTY-LICENSES.txt` next to the bundle.

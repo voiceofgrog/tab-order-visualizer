@@ -60,14 +60,30 @@ function deepActive(): Element | null {
 
 const STYLE = `
 :host { all: initial; }
+.wrap {
+  --ui-bg: #ffffff; --ui-head: #f6f7fb; --ui-fg: #1d2030; --ui-muted: #555b6e; --ui-border: #e2e4ec;
+  --ui-accent: #3730a3; --ui-accent-fg: #ffffff; --ui-soft: #eef0ff;
+  --ui-shadow: 0 10px 30px rgba(20, 24, 50, .18), 0 2px 6px rgba(20, 24, 50, .12);
+  --fail-bg: #fde8e8; --fail-fg: #8a1010; --review-bg: #fff3d1; --review-fg: #6b4a00;
+  --advice-bg: #e6efff; --advice-fg: #1a3d8a; --ok-bg: #e3f6ea; --ok-fg: #14532d;
+}
+@media (prefers-color-scheme: dark) {
+  .wrap {
+    --ui-bg: #1b1d27; --ui-head: #222532; --ui-fg: #eceef6; --ui-muted: #a9aec2; --ui-border: #343849;
+    --ui-accent: #a5b4fc; --ui-accent-fg: #14162a; --ui-soft: #2a2e45; --ui-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    --fail-bg: #3b1717; --fail-fg: #fca5a5; --review-bg: #3a2e0c; --review-fg: #fcd34d;
+    --advice-bg: #172447; --advice-fg: #93c5fd; --ok-bg: #12301f; --ok-fg: #86efac;
+  }
+}
 .layer { position: absolute; top: 0; left: 0; pointer-events: none; }
-.layer[hidden], .box[hidden] { display: none; }
+.layer[hidden], .box[hidden], .body[hidden] { display: none; }
 svg { position: absolute; top: 0; left: 0; overflow: visible; }
-.dim { fill: rgba(0, 0, 0, 0.35); }
+.dim { fill: rgba(12, 14, 32, .42); }
+.shadow { fill: none; stroke: rgba(12, 14, 40, .28); stroke-width: var(--shadow-w); stroke-linecap: round; }
 .halo { fill: none; stroke: var(--halo); stroke-width: var(--halo-w); stroke-linecap: round; }
 .real { fill: none; stroke: var(--real); stroke-width: var(--stroke); stroke-linecap: round; }
 .real.jump { stroke-width: var(--stroke-jump); }
-.sugg { fill: none; stroke: var(--sugg); stroke-width: var(--stroke); stroke-dasharray: 7 5; }
+.sugg { fill: none; stroke: var(--sugg); stroke-width: var(--stroke); stroke-dasharray: 7 5; stroke-linecap: round; }
 .outline { fill: none; stroke: var(--real); stroke-width: 1.5px; }
 .outline.hidden-stop { stroke-dasharray: 3 3; }
 .outline-halo { fill: none; stroke: var(--halo); stroke-width: 4px; }
@@ -75,309 +91,369 @@ svg { position: absolute; top: 0; left: 0; overflow: visible; }
 .hl-halo { fill: none; stroke: var(--halo); stroke-width: 9px; }
 .head-real { fill: var(--real); }
 .head-sugg { fill: var(--sugg); }
-.jump-label { font: 700 12px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--real);
-  stroke: var(--halo); stroke-width: 4px; paint-order: stroke; }
+.pill { fill: var(--halo); stroke: var(--real); stroke-width: 1.5px; }
+.pill-text { font: 700 10.5px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--real); }
 .badge, .sbadge {
   position: absolute; transform: translate(-50%, -50%); box-sizing: border-box;
   min-width: var(--badge); height: var(--badge); padding: 0 4px; white-space: nowrap; text-align: center;
   font: 700 var(--font)/calc(var(--badge) - 4px) system-ui, -apple-system, "Segoe UI", sans-serif;
-  border: 2px solid var(--halo);
+  font-variant-numeric: tabular-nums; border: 2px solid var(--halo);
 }
-.badge { border-radius: calc(var(--badge) / 2); background: var(--real); color: var(--real-text); box-shadow: 0 0 0 1px var(--real); }
+.badge { border-radius: calc(var(--badge) / 2); background: var(--real); color: var(--real-text);
+  box-shadow: 0 0 0 1px var(--real), 0 1px 2px rgba(0,0,0,.3), 0 3px 8px rgba(0,0,0,.18); }
 .badge.hidden-stop { background: var(--halo); color: var(--real); border: 2px dashed var(--real); }
-.sbadge { border-radius: 2px; background: var(--sugg); color: var(--sugg-text); box-shadow: 0 0 0 1px var(--sugg); }
+.sbadge { border-radius: 4px; background: var(--sugg); color: var(--sugg-text);
+  box-shadow: 0 0 0 1px var(--sugg), 0 1px 2px rgba(0,0,0,.3), 0 3px 8px rgba(0,0,0,.18); }
+
 .panel {
-  position: fixed; right: 12px; bottom: 12px; width: 340px; max-height: calc(100vh - 24px); overflow: auto;
-  box-sizing: border-box; pointer-events: auto; background: #ffffff; color: #111111;
-  border: 2px solid #1a1a5e; border-radius: 6px; padding: 10px 12px; box-shadow: 0 2px 10px rgba(0,0,0,.25);
-  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; text-align: left;
+  position: fixed; right: 16px; bottom: 16px; width: 360px; max-height: calc(100vh - 32px); overflow: auto;
+  box-sizing: border-box; pointer-events: auto; background: var(--ui-bg); color: var(--ui-fg);
+  border: 1px solid var(--ui-border); border-radius: 12px; box-shadow: var(--ui-shadow);
+  font: 13.5px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; text-align: left;
 }
-.panel.left { right: auto; left: 12px; }
-.panel:focus { outline: 3px solid #1a1a5e; outline-offset: 2px; }
-@media (forced-colors: active) {
-  .layer { forced-color-adjust: none; }
-  .panel { border-color: CanvasText; }
-}
-.panel p { margin: 0 0 6px; }
-.panel a { color: #1a1a5e; }
-.title { font-weight: 700; font-size: 15px; }
-.section { border-top: 1px solid #c8c8d8; margin-top: 8px; padding-top: 8px; }
-.small { font-size: 12px; color: #333333; }
-fieldset { border: 0; margin: 0 0 6px; padding: 0; }
-legend { padding: 0; font-weight: 600; }
-.row { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin-bottom: 6px; }
+.panel.left { right: auto; left: 16px; }
+.panel.min { width: auto; }
+.panel:focus { outline: none; }
+.panel:focus-visible { outline: 3px solid var(--ui-accent); outline-offset: 2px; }
+.header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px 7px 14px; background: var(--ui-head); border-bottom: 1px solid var(--ui-border); border-radius: 12px 12px 0 0; }
+.panel.min .header { border-bottom: 0; border-radius: 12px; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; flex: 1; white-space: nowrap; }
+.mark { display: inline-block; width: 18px; height: 18px; border-radius: 9px; background: #1a1a5e; color: #fff;
+  font: 700 11px/18px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff, 0 0 0 3px #1a1a5e; }
+.icons { display: flex; gap: 2px; }
+.icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0;
+  border: 0; border-radius: 8px; background: transparent; color: var(--ui-muted); cursor: pointer; }
+.icon:hover { background: var(--ui-soft); color: var(--ui-fg); }
+.icon svg { position: static; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round; }
+.body { padding: 10px 14px 12px; }
+.panel p { margin: 0 0 8px; }
+.panel a { color: var(--ui-accent); }
+.status { font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.chip { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.chip.fail, .sev.fail { background: var(--fail-bg); color: var(--fail-fg); }
+.chip.review, .sev.review { background: var(--review-bg); color: var(--review-fg); }
+.chip.advice, .sev.advice { background: var(--advice-bg); color: var(--advice-fg); }
+.chip.ok { background: var(--ok-bg); color: var(--ok-fg); }
+.small { font-size: 12px; color: var(--ui-muted); }
+.sect { border: 0; border-top: 1px solid var(--ui-border); padding: 0; margin: 0; }
+.sect > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; padding: 10px 0;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ui-muted); cursor: pointer; }
+.sect > summary::-webkit-details-marker { display: none; }
+.sect > summary::after { content: "+"; font-size: 16px; font-weight: 500; line-height: 1; }
+.sect[open] > summary::after { content: "\\2212"; }
+.sect > .content { padding: 0 0 10px; }
+fieldset { border: 0; margin: 0 0 8px; padding: 0; }
+legend { padding: 0; margin-bottom: 4px; font-size: 12px; color: var(--ui-muted); }
+.seg { display: flex; padding: 3px; gap: 3px; background: var(--ui-head); border: 1px solid var(--ui-border); border-radius: 9px; }
+.seg label { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 5px 6px;
+  border-radius: 7px; font-size: 12.5px; white-space: nowrap; }
+.seg label:has(input:checked) { background: var(--ui-bg); box-shadow: 0 1px 3px rgba(0,0,0,.15); font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-bottom: 8px; }
 label { cursor: pointer; }
-select { font: inherit; font-size: 13px; max-width: 100%; }
-.row > label { max-width: 100%; }
+input[type=checkbox], input[type=radio] { accent-color: var(--ui-accent); margin: 0; }
+.row > label { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; }
+.row > label.grow { flex: 1; }
+.row > label.grow select { flex: 1; width: 100%; min-width: 0; }
+select { font: inherit; font-size: 13px; max-width: 100%; padding: 4px 6px; border: 1px solid var(--ui-border);
+  border-radius: 7px; background: var(--ui-bg); color: var(--ui-fg); }
+.key { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
 .sample { display: inline-block; min-width: 18px; height: 18px; box-sizing: border-box; padding: 0 3px; vertical-align: middle;
-  font: 700 11px/14px system-ui, sans-serif; text-align: center; border: 2px solid #1a1a5e; }
+  margin-right: 4px; font: 700 11px/14px system-ui, sans-serif; text-align: center; border: 2px solid #1a1a5e; }
 .sample.real { border-radius: 9px; background: #1a1a5e; color: #fff; }
 .sample.hidden-stop { border-radius: 9px; background: #fff; color: #1a1a5e; border-style: dashed; }
-.sample.sugg { border-radius: 2px; background: #b0006a; border-color: #b0006a; color: #fff; }
-.buttons { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-button {
-  font: inherit; font-size: 13px; padding: 3px 9px; border-radius: 4px; cursor: pointer;
-  border: 1px solid #1a1a5e; background: #ffffff; color: #1a1a5e;
-}
-button:hover { background: #eef0ff; }
+.sample.sugg { border-radius: 4px; background: #b0006a; border-color: #b0006a; color: #fff; }
+.buttons { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 8px; }
+button { font: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--ui-border); background: var(--ui-bg); color: var(--ui-fg); }
+button:hover { background: var(--ui-soft); }
 button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visible {
-  outline: 3px solid #1a1a5e; outline-offset: 2px;
+  outline: 3px solid var(--ui-accent); outline-offset: 2px;
 }
 ul { list-style: none; margin: 0; padding: 0; }
 li { margin: 0 0 6px; }
-details { border: 1px solid #c8c8d8; border-radius: 4px; padding: 4px 6px; }
-summary { cursor: pointer; }
-.sev { display: inline-block; min-width: 46px; margin-right: 4px; padding: 0 4px; border-radius: 3px;
-  font-size: 11px; font-weight: 700; text-align: center; text-transform: uppercase; border: 1px solid; }
-.sev.fail { background: #fde8e8; color: #8a1010; }
-.sev.review { background: #fff4d6; color: #6b4a00; }
-table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 13px; }
-th, td { text-align: left; padding: 3px 4px; border-bottom: 1px solid #d8d8e4; vertical-align: top; }
-thead th { font-size: 12px; color: #333333; }
+.issue { border: 1px solid var(--ui-border); border-radius: 9px; padding: 0 10px; }
+.issue[open] { padding-bottom: 6px; }
+.issue > summary { padding: 7px 0; cursor: pointer; font-weight: 600; }
+.sev { display: inline-block; min-width: 50px; margin-right: 6px; padding: 1px 6px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: .04em; }
+table { border-collapse: collapse; width: 100%; margin: 4px 0 8px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 5px 4px; border-bottom: 1px solid var(--ui-border); vertical-align: top; }
+thead th { font-size: 11.5px; font-weight: 600; color: var(--ui-muted); }
 tbody th { font-weight: 600; }
 .basis { padding-left: 16px; list-style: disc; }
 .basis li { margin-bottom: 4px; }
-.sev.advice { background: #e8f0fe; color: #1a3d8a; }
+@media (forced-colors: active) {
+  .layer { forced-color-adjust: none; }
+  .shadow { display: none; }
+  .panel { border-color: CanvasText; }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 `;
 
 export class Overlay {
-  private host: HTMLElement;
-  private wrap: HTMLDivElement;
-  private layer: HTMLDivElement;
-  private svg: SVGSVGElement;
-  private realBox: HTMLDivElement;
-  private suggBox: HTMLDivElement;
-  private panel!: HTMLDivElement;
-  private status!: HTMLParagraphElement;
-  private stepOut!: HTMLParagraphElement;
-  private notesBox!: HTMLDivElement;
-  private issuesTitle!: HTMLParagraphElement;
-  private issuesNote!: HTMLParagraphElement;
-  private issuesList!: HTMLUListElement;
-  private toggleButton!: HTMLButtonElement;
-  private targetSelect!: HTMLSelectElement;
-  private pickButton!: HTMLButtonElement;
-  private pickHint!: HTMLParagraphElement;
-  private timeBody!: HTMLTableSectionElement;
-  private timeNotes!: HTMLDivElement;
-  private basisList!: HTMLUListElement;
-  private picking = false;
-  private returnTo: Element | null = null;
+  #host: HTMLElement;
+  #wrap: HTMLDivElement;
+  #layer: HTMLDivElement;
+  #svg: SVGSVGElement;
+  #realBox: HTMLDivElement;
+  #suggBox: HTMLDivElement;
+  #panel!: HTMLDivElement;
+  #status!: HTMLParagraphElement;
+  #stepOut!: HTMLParagraphElement;
+  #notesBox!: HTMLDivElement;
+  #issuesTitle!: HTMLElement;
+  #issuesNote!: HTMLParagraphElement;
+  #issuesList!: HTMLUListElement;
+  #toggleButton!: HTMLButtonElement;
+  #targetSelect!: HTMLSelectElement;
+  #pickButton!: HTMLButtonElement;
+  #pickHint!: HTMLParagraphElement;
+  #timeBody!: HTMLTableSectionElement;
+  #timeNotes!: HTMLDivElement;
+  #basisList!: HTMLUListElement;
+  #picking = false;
+  #returnTo: Element | null = null;
+  #body!: HTMLDivElement;
+  #chips!: HTMLDivElement;
+  #minButton!: HTMLButtonElement;
 
-  private result: ScanResult | null = null;
-  private realBadges: HTMLDivElement[] = [];
-  private suggBadges: HTMLDivElement[] = [];
-  private view: View = 'real';
-  private arrows = true;
-  private outlines = true;
-  private dim = false;
-  private palette = config.display.defaultPalette;
-  private size = config.display.defaultSize;
-  private step = -1;
-  private highlight: Element[] = [];
-  private generation = 0;
-  private frame = 0;
-  private resizeObserver: ResizeObserver;
-  private readonly schedule = () => {
-    if (!this.frame) this.frame = requestAnimationFrame(() => {
-      this.frame = 0;
-      this.layout();
+  #result: ScanResult | null = null;
+  #realBadges: HTMLDivElement[] = [];
+  #suggBadges: HTMLDivElement[] = [];
+  #view: View = 'real';
+  #arrows = true;
+  #outlines = true;
+  #dim = false;
+  #palette = config.display.defaultPalette;
+  #size = config.display.defaultSize;
+  #step = -1;
+  #highlight: Element[] = [];
+  #generation = 0;
+  #frame = 0;
+  #resizeObserver: ResizeObserver;
+  readonly #schedule = () => {
+    if (!this.#frame) this.#frame = requestAnimationFrame(() => {
+      this.#frame = 0;
+      this.#layout();
     });
   };
 
   constructor(private runScan: () => Promise<ScanResult>, private onClose: () => void) {
-    this.host = document.createElement(OVERLAY_TAG);
+    this.#host = document.createElement(OVERLAY_TAG);
     for (const [k, v] of Object.entries({
       position: 'absolute', top: '0', left: '0', width: '0', height: '0', margin: '0', padding: '0',
       border: '0', overflow: 'visible', display: 'block', 'z-index': '2147483647',
-    })) this.host.style.setProperty(k, v, 'important');
+    })) this.#host.style.setProperty(k, v, 'important');
 
-    const root = this.host.attachShadow({ mode: 'open' });
+    const root = this.#host.attachShadow({ mode: 'open' });
     applyStyles(root);
-    this.wrap = el('div', 'wrap');
-    this.layer = el('div', 'layer');
-    this.layer.setAttribute('aria-hidden', 'true');
-    this.svg = document.createElementNS(SVG_NS, 'svg');
-    this.realBox = el('div', 'box');
-    this.suggBox = el('div', 'box');
-    this.layer.append(this.svg, this.suggBox, this.realBox);
-    this.wrap.append(this.layer, this.buildPanel());
-    root.append(this.wrap);
-    document.documentElement.append(this.host);
+    this.#wrap = el('div', 'wrap');
+    this.#layer = el('div', 'layer');
+    this.#layer.setAttribute('aria-hidden', 'true');
+    this.#svg = document.createElementNS(SVG_NS, 'svg');
+    this.#realBox = el('div', 'box');
+    this.#suggBox = el('div', 'box');
+    this.#layer.append(this.#svg, this.#suggBox, this.#realBox);
+    this.#wrap.append(this.#layer, this.#buildPanel());
+    root.append(this.#wrap);
+    document.documentElement.append(this.#host);
 
-    this.applyDisplay();
-    window.addEventListener('scroll', this.schedule, { passive: true, capture: true });
-    window.addEventListener('resize', this.schedule, { passive: true });
-    this.resizeObserver = new ResizeObserver(this.schedule);
-    this.resizeObserver.observe(document.body);
-    document.addEventListener('keydown', this.onShortcut, true);
+    this.#applyDisplay();
+    window.addEventListener('scroll', this.#schedule, { passive: true, capture: true });
+    window.addEventListener('resize', this.#schedule, { passive: true });
+    this.#resizeObserver = new ResizeObserver(this.#schedule);
+    this.#resizeObserver.observe(document.body);
+    document.addEventListener('keydown', this.#onShortcut, true);
     // Keyboard users land in the panel straight away (they just invoked the tool).
     void this.refresh().then(() => this.focusPanel());
   }
 
   /** Moves focus into the panel, remembering where it was on the page. */
   focusPanel(): void {
-    if (!this.host.isConnected) return;
+    if (!this.#host.isConnected) return;
     // While focus is anywhere in our Shadow DOM, the document reports the host as active
     // (Node.contains does not look inside shadow roots, so it cannot answer this).
-    if (!this.focusInside()) this.returnTo = deepActive();
-    this.panel.focus({ preventScroll: true });
+    if (!this.#focusInside()) this.#returnTo = deepActive();
+    this.#panel.focus({ preventScroll: true });
   }
 
-  private focusInside(): boolean {
-    return document.activeElement === this.host;
+  #focusInside(): boolean {
+    return document.activeElement === this.#host;
   }
 
   /** Sends focus back to where it was on the page before the panel took it. */
-  private returnFocus(): void {
-    const target = this.returnTo as HTMLElement | null;
-    this.returnTo = null;
+  #returnFocus(): void {
+    const target = this.#returnTo as HTMLElement | null;
+    this.#returnTo = null;
     if (target?.isConnected && typeof target.focus === 'function') target.focus({ preventScroll: true });
     else (document.activeElement as HTMLElement | null)?.blur?.();
   }
 
-  private readonly onShortcut = (e: KeyboardEvent) => {
+  readonly #onShortcut = (e: KeyboardEvent) => {
     if (!matchesShortcut(e, SHORTCUT)) return;
     e.preventDefault();
     e.stopPropagation();
-    if (this.focusInside()) this.returnFocus();
+    if (this.#focusInside()) this.#returnFocus();
     else this.focusPanel();
   };
 
   setVisible(visible: boolean): void {
-    this.layer.hidden = !visible;
-    this.toggleButton.textContent = visible ? 'Hide overlay' : 'Show overlay';
-    if (visible) this.layout();
+    this.#layer.hidden = !visible;
+    const label = visible ? 'Hide overlay' : 'Show overlay';
+    this.#toggleButton.setAttribute('aria-label', label);
+    this.#toggleButton.title = label;
+    this.#toggleButton.replaceChildren(icon(visible ? ICONS.eye : ICONS.eyeOff));
+    if (visible) this.#layout();
   }
 
   async refresh(): Promise<void> {
-    const gen = ++this.generation;
-    this.status.textContent = 'Scanning…';
+    const gen = ++this.#generation;
+    this.#status.textContent = 'Scanning…';
     try {
       const r = await this.runScan();
-      if (gen !== this.generation || !this.host.isConnected) return;
-      this.result = r;
-      this.step = -1;
-      this.highlight = [];
-      this.render();
+      if (gen !== this.#generation || !this.#host.isConnected) return;
+      this.#result = r;
+      this.#step = -1;
+      this.#highlight = [];
+      this.#render();
     } catch (e) {
-      this.status.textContent = `Scan failed: ${e instanceof Error ? e.message : String(e)}`;
+      this.#status.textContent = `Scan failed: ${e instanceof Error ? e.message : String(e)}`;
     }
   }
 
   destroy(): void {
-    this.generation++;
-    if (this.picking) this.stopPicking('');
-    window.removeEventListener('scroll', this.schedule, { capture: true });
-    window.removeEventListener('resize', this.schedule);
-    document.removeEventListener('keydown', this.onShortcut, true);
-    const hadFocus = this.focusInside();
-    this.resizeObserver.disconnect();
-    cancelAnimationFrame(this.frame);
-    this.host.remove();
-    if (hadFocus) this.returnFocus(); // closing from the panel: do not strand keyboard focus
+    this.#generation++;
+    if (this.#picking) this.#stopPicking('');
+    window.removeEventListener('scroll', this.#schedule, { capture: true });
+    window.removeEventListener('resize', this.#schedule);
+    document.removeEventListener('keydown', this.#onShortcut, true);
+    const hadFocus = this.#focusInside();
+    this.#resizeObserver.disconnect();
+    cancelAnimationFrame(this.#frame);
+    this.#host.remove();
+    if (hadFocus) this.#returnFocus(); // closing from the panel: do not strand keyboard focus
     this.onClose();
   }
 
   // ---------------------------------------------------------------- panel
 
-  private buildPanel(): HTMLDivElement {
-    const panel = (this.panel = el('div', 'panel'));
+  #buildPanel(): HTMLDivElement {
+    const panel = (this.#panel = el('div', 'panel'));
     panel.setAttribute('role', 'region');
     panel.setAttribute('aria-label', 'Tab order visualizer');
     panel.tabIndex = -1; // focusable by script (on open, shortcut), not an extra Tab stop
     panel.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !this.picking) {
+      if (e.key === 'Escape' && !this.#picking) {
         e.preventDefault();
-        this.returnFocus();
+        this.#returnFocus();
       }
     });
 
-    const title = el('p', 'title');
-    title.textContent = 'Tab order';
+    // Header bar: name plus icon buttons (each has an accessible name and a tooltip).
+    const header = el('div', 'header');
+    const brand = el('div', 'brand');
+    const mark = el('span', 'mark');
+    mark.setAttribute('aria-hidden', 'true');
+    mark.textContent = '1';
+    brand.append(mark, 'Tab order');
+    const icons = el('div', 'icons');
+    this.#toggleButton = iconButton('Hide overlay', ICONS.eye, () => this.setVisible(this.#layer.hidden !== false));
+    this.#minButton = iconButton('Minimise panel', ICONS.minus, () => this.#setMinimised(!this.#body.hidden));
+    icons.append(
+      this.#toggleButton,
+      iconButton('Refresh', ICONS.refresh, () => void this.refresh()),
+      iconButton('Move panel', ICONS.move, () => panel.classList.toggle('left')),
+      this.#minButton,
+      iconButton('Close', ICONS.close, () => this.destroy()),
+    );
+    header.append(brand, icons);
+
+    this.#body = el('div', 'body');
+    this.#status = el('p', 'status');
+    this.#status.setAttribute('role', 'status');
+    this.#chips = el('div', 'chips');
+    this.#notesBox = el('div', 'small');
     const keys = el('p', 'small');
     keys.textContent = `${SHORTCUT_LABEL}: move between the page and this panel. Escape: back to the page.`;
-    this.status = el('p', 'status');
-    this.status.setAttribute('role', 'status');
-    this.notesBox = el('div', 'small');
 
     const viewSet = el('fieldset', '');
     const legend = el('legend', '');
     legend.textContent = 'Show';
-    const viewRow = el('div', 'row');
+    const viewRow = el('div', 'seg');
     for (const [value, text] of [['real', 'Real order'], ['suggested', 'Suggested order'], ['both', 'Both']] as const) {
-      viewRow.append(radio('tov-view', value, text, value === this.view, () => {
-        this.view = value;
-        this.step = -1;
-        this.highlight = [];
-        this.stepOut.textContent = '';
-        this.layout();
+      viewRow.append(radio('tov-view', value, text, value === this.#view, () => {
+        this.#view = value;
+        this.#step = -1;
+        this.#highlight = [];
+        this.#stepOut.textContent = '';
+        this.#layout();
       }));
     }
     viewSet.append(legend, viewRow);
 
     const toggles = el('div', 'row');
     toggles.append(
-      checkbox('Arrows', this.arrows, (v) => { this.arrows = v; this.layout(); }),
-      checkbox('Outlines', this.outlines, (v) => { this.outlines = v; this.layout(); }),
-      checkbox('Dim page', this.dim, (v) => { this.dim = v; this.layout(); }),
+      checkbox('Arrows', this.#arrows, (v) => { this.#arrows = v; this.#layout(); }),
+      checkbox('Outlines', this.#outlines, (v) => { this.#outlines = v; this.#layout(); }),
+      checkbox('Dim page', this.#dim, (v) => { this.#dim = v; this.#layout(); }),
     );
 
     const selects = el('div', 'row');
     selects.append(
-      select('Colours', Object.entries(PALETTES).map(([k, p]) => [k, p.label]), this.palette, (v) => { this.palette = v; this.applyDisplay(); }),
-      select('Size', Object.entries(SIZES).map(([k, s]) => [k, s.label]), this.size, (v) => { this.size = v; this.applyDisplay(); }),
+      select('Colours', Object.entries(PALETTES).map(([k, p]) => [k, p.label]), this.#palette, (v) => { this.#palette = v; this.#applyDisplay(); }),
+      select('Size', Object.entries(SIZES).map(([k, s]) => [k, s.label]), this.#size, (v) => { this.#size = v; this.#applyDisplay(); }),
     );
 
-    const key = el('p', 'small');
-    key.append(sample('1', 'real'), ' real Tab order (solid)  ', sample('1', 'sugg'), ' suggested (dashed)  ',
-      sample('2', 'hidden-stop'), ' focusable, not visible');
+    const key = el('p', 'small key');
+    key.append(keyItem(sample('1', 'real'), 'real order (solid)'), keyItem(sample('1', 'sugg'), 'suggested (dashed)'),
+      keyItem(sample('2', 'hidden-stop'), 'focusable, not visible'));
 
-    const step = el('div', 'section');
-    const stepTitle = el('p', 'title');
-    stepTitle.textContent = 'Step through';
     const stepButtons = el('div', 'buttons');
-    stepButtons.append(button('Previous stop', () => this.stepBy(-1)), button('Next stop', () => this.stepBy(1)));
-    this.stepOut = el('p', 'small');
-    this.stepOut.setAttribute('aria-live', 'polite');
-    step.append(stepTitle, stepButtons, this.stepOut);
+    stepButtons.append(button('Previous stop', () => this.#stepBy(-1)), button('Next stop', () => this.#stepBy(1)));
+    this.#stepOut = el('p', 'small');
+    this.#stepOut.setAttribute('aria-live', 'polite');
 
-    const time = this.buildTimeSection();
+    const [issues, issuesSummary] = section('Issues');
+    this.#issuesTitle = issuesSummary;
+    this.#issuesNote = el('p', 'small');
+    this.#issuesList = el('ul', '');
+    issues.lastElementChild!.append(this.#issuesNote, this.#issuesList);
 
-    const issues = el('div', 'section');
-    this.issuesTitle = el('p', 'title');
-    this.issuesTitle.textContent = 'Issues';
-    this.issuesNote = el('p', 'small');
-    this.issuesList = el('ul', '');
-    issues.append(this.issuesTitle, this.issuesNote, this.issuesList);
+    const [display] = section('Display');
+    display.lastElementChild!.append(viewSet, toggles, selects, key);
+    const [step] = section('Step through');
+    step.lastElementChild!.append(stepButtons, this.#stepOut);
+    const [time] = section('Time to reach (estimate)');
+    this.#buildTimeSection(time.lastElementChild as HTMLElement);
 
-    const actions = el('div', 'buttons section');
-    this.toggleButton = button('Hide overlay', () => this.setVisible(this.layer.hidden !== false));
-    actions.append(
-      this.toggleButton,
-      button('Refresh', () => void this.refresh()),
-      button('Move panel', () => panel.classList.toggle('left')),
-      button('Close', () => this.destroy()),
-    );
-
-    panel.append(title, keys, this.status, this.notesBox, viewSet, toggles, selects, key, step, time, issues, actions);
+    this.#body.append(this.#status, this.#chips, this.#notesBox, keys, display, step, time, issues);
+    panel.append(header, this.#body);
     return panel;
   }
 
-  private buildTimeSection(): HTMLDivElement {
-    const section = el('div', 'section');
-    const title = el('p', 'title');
-    title.textContent = 'Time to reach (estimate)';
+  #setMinimised(min: boolean): void {
+    this.#body.hidden = min;
+    this.#panel.classList.toggle('min', min);
+    const label = min ? 'Expand panel' : 'Minimise panel';
+    this.#minButton.setAttribute('aria-label', label);
+    this.#minButton.title = label;
+    this.#minButton.setAttribute('aria-expanded', String(!min));
+    this.#minButton.replaceChildren(icon(min ? ICONS.plus : ICONS.minus));
+  }
+
+  #buildTimeSection(section: HTMLElement): void {
     const row = el('div', 'row');
-    const label = el('label', '');
-    this.targetSelect = el('select', '');
-    this.targetSelect.addEventListener('change', () => this.setTarget(Number(this.targetSelect.value), false));
-    label.append('Target ', this.targetSelect);
-    this.pickButton = button('Pick on page', () => this.startPicking());
-    row.append(label, this.pickButton);
-    this.pickHint = el('p', 'small');
-    this.pickHint.setAttribute('aria-live', 'polite');
+    const label = el('label', 'grow');
+    this.#targetSelect = el('select', '');
+    this.#targetSelect.addEventListener('change', () => this.#setTarget(Number(this.#targetSelect.value), false));
+    label.append('Target ', this.#targetSelect);
+    this.#pickButton = button('Pick on page', () => this.#startPicking());
+    row.append(label, this.#pickButton);
+    this.#pickHint = el('p', 'small');
+    this.#pickHint.setAttribute('aria-live', 'polite');
 
     const table = el('table', '');
     const head = el('thead', '');
@@ -389,11 +465,11 @@ export class Overlay {
       hr.append(th);
     }
     head.append(hr);
-    this.timeBody = el('tbody', '');
-    table.append(head, this.timeBody);
+    this.#timeBody = el('tbody', '');
+    table.append(head, this.#timeBody);
 
-    this.timeNotes = el('div', '');
-    const how = el('details', '');
+    this.#timeNotes = el('div', '');
+    const how = el('details', 'issue');
     const howSummary = el('summary', '');
     howSummary.textContent = 'How this is estimated';
     const formula = el('p', 'small');
@@ -401,18 +477,17 @@ export class Overlay {
       'Each Tab stop costs one key press, plus time to hear the screen reader announce it (words ÷ speech rate), ' +
       'or for sighted users, time to spot the focus on screen. Time to reach = the sum for every stop up to the target. ' +
       'Change the numbers in config/defaults.json.';
-    this.basisList = el('ul', 'small basis');
-    how.append(howSummary, formula, this.basisList);
+    this.#basisList = el('ul', 'small basis');
+    how.append(howSummary, formula, this.#basisList);
     const caveat = el('p', 'small');
     caveat.textContent = 'A model, not a measurement. Real times vary a lot between people, devices and screen readers.';
-    section.append(title, row, this.pickHint, table, this.timeNotes, how, caveat);
-    return section;
+    section.append(row, this.#pickHint, table, this.#timeNotes, how, caveat);
   }
 
   /** Fills the target list and picks a default: the first stop in <main>, else the last stop. */
-  private renderTime(r: ScanResult): void {
+  #renderTime(r: ScanResult): void {
     const { stops } = r.order;
-    this.targetSelect.replaceChildren(
+    this.#targetSelect.replaceChildren(
       ...stops.map((s) => {
         const o = el('option', '');
         o.value = String(s.index);
@@ -420,7 +495,7 @@ export class Overlay {
         return o;
       }),
     );
-    this.basisList.replaceChildren(
+    this.#basisList.replaceChildren(
       ...PROFILES.map((p) => {
         const li = el('li', '');
         const b = el('strong', '');
@@ -434,15 +509,15 @@ export class Overlay {
     const main = document.querySelector('main, [role=main]');
     const inMain = main ? stops.find((s) => contains(main, s.element)) : undefined;
     const fallback = inMain ?? stops[stops.length - 1];
-    if (fallback) this.setTarget(fallback.index, false);
-    else this.timeBody.replaceChildren();
+    if (fallback) this.#setTarget(fallback.index, false);
+    else this.#timeBody.replaceChildren();
   }
 
-  private setTarget(index: number, announce: boolean): void {
-    const r = this.result;
+  #setTarget(index: number, announce: boolean): void {
+    const r = this.#result;
     const target = r?.order.stops[index - 1];
     if (!r || !target) return;
-    this.targetSelect.value = String(index);
+    this.#targetSelect.value = String(index);
     const rows = estimate(r, target).map((e) => {
       const tr = el('tr', '');
       const th = el('th', '');
@@ -455,7 +530,7 @@ export class Overlay {
       tr.append(th, reach, total);
       return tr;
     });
-    this.timeBody.replaceChildren(...rows);
+    this.#timeBody.replaceChildren(...rows);
 
     const notes: HTMLElement[] = [];
     const ann = r.announcements.get(target);
@@ -482,101 +557,121 @@ export class Overlay {
         `about ${saved(kb)} saved for a sighted keyboard user and ${saved(sr)} for an everyday screen reader user, on every page visit.`,
       ));
     }
-    this.timeNotes.replaceChildren(...notes);
-    if (announce) this.pickHint.textContent = `Target set to stop ${index}: ${target.label}.`;
+    this.#timeNotes.replaceChildren(...notes);
+    if (announce) this.#pickHint.textContent = `Target set to stop ${index}: ${target.label}.`;
   }
 
   /** Next click on the page chooses the target. The click is swallowed so links do not navigate. */
-  private startPicking(): void {
-    if (this.picking) return this.stopPicking('Picking cancelled.');
-    this.picking = true;
-    this.pickButton.textContent = 'Cancel picking';
-    this.pickHint.textContent = 'Click a link, button or field on the page. Press Escape to cancel.';
-    document.addEventListener('click', this.onPickClick, true);
-    document.addEventListener('keydown', this.onPickKey, true);
+  #startPicking(): void {
+    if (this.#picking) return this.#stopPicking('Picking cancelled.');
+    this.#picking = true;
+    this.#pickButton.textContent = 'Cancel picking';
+    this.#pickHint.textContent = 'Click a link, button or field on the page. Press Escape to cancel.';
+    document.addEventListener('click', this.#onPickClick, true);
+    document.addEventListener('keydown', this.#onPickKey, true);
   }
 
-  private stopPicking(message: string): void {
-    this.picking = false;
-    this.pickButton.textContent = 'Pick on page';
-    this.pickHint.textContent = message;
-    document.removeEventListener('click', this.onPickClick, true);
-    document.removeEventListener('keydown', this.onPickKey, true);
+  #stopPicking(message: string): void {
+    this.#picking = false;
+    this.#pickButton.textContent = 'Pick on page';
+    this.#pickHint.textContent = message;
+    document.removeEventListener('click', this.#onPickClick, true);
+    document.removeEventListener('keydown', this.#onPickKey, true);
   }
 
-  private readonly onPickKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') this.stopPicking('Picking cancelled.');
+  readonly #onPickKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') this.#stopPicking('Picking cancelled.');
   };
 
-  private readonly onPickClick = (e: MouseEvent) => {
+  readonly #onPickClick = (e: MouseEvent) => {
     const path = e.composedPath();
-    if (path.includes(this.host) || !this.result) return; // clicks on our own panel work normally
+    if (path.includes(this.#host) || !this.#result) return; // clicks on our own panel work normally
     e.preventDefault();
     e.stopImmediatePropagation();
-    const stops = this.result.order.stops;
+    const stops = this.#result.order.stops;
     for (const node of path) {
       const stop = stops.find((s) => s.element === node);
       if (stop) {
-        this.stopPicking('');
-        this.setTarget(stop.index, true);
-        this.focusOn([stop.element]);
+        this.#stopPicking('');
+        this.#setTarget(stop.index, true);
+        this.#focusOn([stop.element]);
         return;
       }
     }
-    this.stopPicking('That is not a Tab stop. Choose “Pick on page” again and click a link, button or field.');
+    this.#stopPicking('That is not a Tab stop. Choose “Pick on page” again and click a link, button or field.');
   };
 
-  private applyDisplay(): void {
-    const p = PALETTES[this.palette] ?? Object.values(PALETTES)[0];
-    const s = SIZES[this.size] ?? Object.values(SIZES)[0];
+  #applyDisplay(): void {
+    const p = PALETTES[this.#palette] ?? Object.values(PALETTES)[0];
+    const s = SIZES[this.#size] ?? Object.values(SIZES)[0];
     const vars: Record<string, string> = {
       '--real': p.real, '--real-text': p.realText, '--sugg': p.suggested, '--sugg-text': p.suggestedText, '--halo': p.halo,
       '--badge': `${s.badge}px`, '--font': `${s.font}px`, '--stroke': `${s.stroke}px`,
-      '--stroke-jump': `${s.stroke * 2}px`, '--halo-w': `${s.stroke + 3}px`,
+      '--stroke-jump': `${s.stroke * 2}px`, '--halo-w': `${s.stroke + 3}px`, '--shadow-w': `${s.stroke + 5}px`,
     };
-    for (const [k, v] of Object.entries(vars)) this.wrap.style.setProperty(k, v);
-    this.layout();
+    for (const [k, v] of Object.entries(vars)) this.#wrap.style.setProperty(k, v);
+    this.#layout();
   }
 
-  private render(): void {
-    const r = this.result!;
+  #render(): void {
+    const r = this.#result!;
     const { stops } = r.order;
     const hiddenCount = stops.filter((s) => s.hidden).length;
-    this.status.textContent =
+    this.#status.textContent =
       `${stops.length} Tab stop${stops.length === 1 ? '' : 's'}` + (hiddenCount ? `, ${hiddenCount} focusable but not visible` : '') + '.';
-    this.notesBox.replaceChildren(...r.order.notes.map((n) => textP(n, 'small')));
+    this.#notesBox.replaceChildren(...r.order.notes.map((n) => textP(n, 'small')));
+    this.#renderChips(r);
 
-    this.realBox.replaceChildren();
-    this.realBadges = stops.map((s) => {
+    this.#realBox.replaceChildren();
+    this.#realBadges = stops.map((s) => {
       const b = el('div', s.hidden ? 'badge hidden-stop' : 'badge');
       b.textContent = String(s.index);
-      this.realBox.append(b);
+      this.#realBox.append(b);
       return b;
     });
-    this.suggBox.replaceChildren();
-    this.suggBadges = r.suggested.map((_, i) => {
+    this.#suggBox.replaceChildren();
+    this.#suggBadges = r.suggested.map((_, i) => {
       const b = el('div', 'sbadge');
       b.textContent = String(i + 1);
-      this.suggBox.append(b);
+      this.#suggBox.append(b);
       return b;
     });
-    this.renderIssues(r);
-    this.renderTime(r);
-    this.layout();
+    this.#renderIssues(r);
+    this.#renderTime(r);
+    this.#layout();
   }
 
-  private renderIssues(r: ScanResult): void {
-    this.issuesTitle.textContent = `Issues (${r.issues.length})`;
+  /** Severity counts as text chips ("2 Fail"), never colour alone. */
+  #renderChips(r: ScanResult): void {
+    const counts = { fail: 0, review: 0, advice: 0 } as Record<Severity, number>;
+    for (const i of r.issues) counts[i.severity]++;
+    const chips = (['fail', 'review', 'advice'] as Severity[])
+      .filter((s) => counts[s])
+      .map((s) => {
+        const c = el('span', `chip ${s}`);
+        c.textContent = `${counts[s]} ${SEVERITY_LABEL[s]}`;
+        return c;
+      });
+    if (!chips.length) {
+      const ok = el('span', 'chip ok');
+      ok.textContent = 'No issues found by the automated checks';
+      chips.push(ok);
+    }
+    this.#chips.replaceChildren(...chips);
+  }
+
+  #renderIssues(r: ScanResult): void {
+    this.#issuesTitle.textContent = `Issues (${r.issues.length})`;
     const notes = ['Automated checks find some problems, not all. "Suggested" results are heuristics: check them.'];
     if (r.axe === 'not-included') notes.push('axe-core checks are not in the bookmarklet build; use the extension build to include them.');
     if (r.axe === 'error') notes.push(`axe-core failed to run: ${r.axeMessage ?? 'unknown error'}.`);
-    this.issuesNote.textContent = notes.join(' ');
-    this.issuesList.replaceChildren(...r.issues.map((i) => this.issueItem(i)));
+    this.#issuesNote.textContent = notes.join(' ');
+    this.#issuesList.replaceChildren(...r.issues.map((i) => this.#issueItem(i)));
   }
 
-  private issueItem(issue: Issue): HTMLLIElement {
+  #issueItem(issue: Issue): HTMLLIElement {
     const li = el('li', '');
-    const details = el('details', '');
+    const details = el('details', 'issue');
     const summary = el('summary', '');
     const sev = el('span', `sev ${issue.severity}`);
     sev.textContent = SEVERITY_LABEL[issue.severity];
@@ -625,7 +720,7 @@ export class Overlay {
     if (issue.elements.length) {
       const shows = el('div', 'buttons');
       issue.elements.slice(0, MAX_SHOW_BUTTONS).forEach((e, n) => {
-        shows.append(button(`Show “${issue.labels[n]}”`, () => this.focusOn([e])));
+        shows.append(button(`Show “${issue.labels[n]}”`, () => this.#focusOn([e])));
       });
       if (issue.elements.length > MAX_SHOW_BUTTONS) shows.append(`and ${issue.elements.length - MAX_SHOW_BUTTONS} more`);
       details.append(shows);
@@ -634,45 +729,45 @@ export class Overlay {
     return li;
   }
 
-  private stepBy(delta: number): void {
-    if (!this.result) return;
-    const seq = this.view === 'suggested' ? this.result.suggested : this.result.order.stops;
+  #stepBy(delta: number): void {
+    if (!this.#result) return;
+    const seq = this.#view === 'suggested' ? this.#result.suggested : this.#result.order.stops;
     if (!seq.length) return;
-    this.step = this.step < 0 ? (delta > 0 ? 0 : seq.length - 1) : (this.step + delta + seq.length) % seq.length;
-    const s = seq[this.step];
-    this.stepOut.textContent =
-      this.view === 'suggested'
-        ? `Suggested ${this.step + 1} of ${seq.length}: ${s.label}. Currently Tab stop ${s.index}.`
+    this.#step = this.#step < 0 ? (delta > 0 ? 0 : seq.length - 1) : (this.#step + delta + seq.length) % seq.length;
+    const s = seq[this.#step];
+    this.#stepOut.textContent =
+      this.#view === 'suggested'
+        ? `Suggested ${this.#step + 1} of ${seq.length}: ${s.label}. Currently Tab stop ${s.index}.`
         : `Stop ${s.index} of ${seq.length}: ${s.label}. ${s.reasons.join(' ')}`;
-    this.focusOn([s.element]);
-    this.setTarget(s.index, false);
+    this.#focusOn([s.element]);
+    this.#setTarget(s.index, false);
   }
 
   /** Highlights elements and scrolls the first into view (does not move keyboard focus). */
-  private focusOn(els: Element[]): void {
-    this.highlight = els;
+  #focusOn(els: Element[]): void {
+    this.#highlight = els;
     els[0]?.scrollIntoView({ block: 'center', inline: 'nearest' });
-    this.layout();
+    this.#layout();
   }
 
   // ---------------------------------------------------------------- drawing
 
-  private layout(): void {
-    if (!this.result || this.layer.hidden) return;
-    const { order, suggested, jumps } = this.result;
-    const showReal = this.view !== 'suggested';
-    const showSugg = this.view !== 'real';
-    this.realBox.hidden = !showReal;
-    this.suggBox.hidden = !showSugg;
+  #layout(): void {
+    if (!this.#result || this.#layer.hidden) return;
+    const { order, suggested, jumps } = this.#result;
+    const showReal = this.#view !== 'suggested';
+    const showSugg = this.#view !== 'real';
+    this.#realBox.hidden = !showReal;
+    this.#suggBox.hidden = !showSugg;
 
-    const size = SIZES[this.size] ?? Object.values(SIZES)[0];
+    const size = SIZES[this.#size] ?? Object.values(SIZES)[0];
     const R = size.badge / 2;
     const docW = document.documentElement.scrollWidth;
     const docH = document.documentElement.scrollHeight;
-    this.layer.style.width = `${docW}px`;
-    this.layer.style.height = `${docH}px`;
-    this.svg.setAttribute('width', String(docW));
-    this.svg.setAttribute('height', String(docH));
+    this.#layer.style.width = `${docW}px`;
+    this.#layer.style.height = `${docH}px`;
+    this.#svg.setAttribute('width', String(docW));
+    this.#svg.setAttribute('height', String(docH));
 
     const cache = new Map<Element, DOMRect>();
     const box = (e: Element) => {
@@ -700,42 +795,45 @@ export class Overlay {
     };
 
     const realPts = order.stops.map(realPos);
-    realPts.forEach(([x, y], i) => place(this.realBadges[i], x, y));
+    realPts.forEach(([x, y], i) => place(this.#realBadges[i], x, y));
     const suggPts = suggested.map(suggPos);
-    suggPts.forEach(([x, y], i) => place(this.suggBadges[i], x, y));
+    suggPts.forEach(([x, y], i) => place(this.#suggBadges[i], x, y));
 
-    this.svg.replaceChildren(arrowheads());
-    if (this.dim) this.svg.append(svgEl('rect', { class: 'dim', x: '0', y: '0', width: String(docW), height: String(docH) }));
-    if (this.outlines) {
+    this.#svg.replaceChildren(arrowheads());
+    if (this.#dim) this.#svg.append(svgEl('rect', { class: 'dim', x: '0', y: '0', width: String(docW), height: String(docH) }));
+    if (this.#outlines) {
       for (const s of showReal ? order.stops : suggested) {
         const r = box(s.element);
         if (r.width < 1 && r.height < 1) continue;
         const a = { x: String(r.left - 2), y: String(r.top - 2), width: String(r.width + 4), height: String(r.height + 4), rx: '3' };
-        this.svg.append(svgEl('rect', { ...a, class: 'outline-halo' }), svgEl('rect', { ...a, class: s.hidden ? 'outline hidden-stop' : 'outline' }));
+        this.#svg.append(svgEl('rect', { ...a, class: 'outline-halo' }), svgEl('rect', { ...a, class: s.hidden ? 'outline hidden-stop' : 'outline' }));
       }
     }
-    if (this.arrows && showSugg) this.drawPath(suggPts, R, 'sugg', new Set());
-    if (this.arrows && showReal) this.drawPath(realPts, R, 'real', jumps);
-    for (const e of this.highlight) {
+    if (this.#arrows && showSugg) this.#drawPath(suggPts, R, 'sugg', new Set());
+    if (this.#arrows && showReal) this.#drawPath(realPts, R, 'real', jumps);
+    for (const e of this.#highlight) {
       const r = box(e);
       const a = { x: String(r.left - 5), y: String(r.top - 5), width: String(r.width + 10), height: String(r.height + 10), rx: '4' };
-      this.svg.append(svgEl('rect', { ...a, class: 'hl-halo' }), svgEl('rect', { ...a, class: 'hl' }));
+      this.#svg.append(svgEl('rect', { ...a, class: 'shadow', transform: 'translate(1.2 1.8)' }), svgEl('rect', { ...a, class: 'hl-halo' }), svgEl('rect', { ...a, class: 'hl' }));
     }
   }
 
-  private drawPath(pts: Pt[], R: number, kind: 'real' | 'sugg', jumps: Set<number>): void {
+  #drawPath(pts: Pt[], R: number, kind: 'real' | 'sugg', jumps: Set<number>): void {
     for (let i = 0; i + 1 < pts.length; i++) {
       const c = curve(pts[i], pts[i + 1], R);
       if (!c) continue;
       const jump = kind === 'real' && jumps.has(i + 1);
-      this.svg.append(
+      this.#svg.append(
+        // Soft offset shadow under the white halo lifts the arrow off the page and separates crossings.
+        svgEl('path', { class: 'shadow', d: c.d, transform: 'translate(1.2 1.8)' }),
         svgEl('path', { class: 'halo', d: c.d }),
         svgEl('path', { class: jump ? 'real jump' : kind, d: c.d, 'marker-end': `url(#tov-head-${kind})` }),
       );
       if (jump) {
-        const t = svgEl('text', { class: 'jump-label', x: c.mid[0].toFixed(1), y: c.mid[1].toFixed(1), 'text-anchor': 'middle' });
+        const [mx, my] = c.mid;
+        const t = svgEl('text', { class: 'pill-text', x: mx.toFixed(1), y: (my + 3.8).toFixed(1), 'text-anchor': 'middle' });
         t.textContent = 'back';
-        this.svg.append(t);
+        this.#svg.append(svgEl('rect', { class: 'pill', x: (mx - 18).toFixed(1), y: (my - 8).toFixed(1), width: '36', height: '16', rx: '8' }), t);
       }
     }
   }
@@ -846,6 +944,51 @@ function select(text: string, options: [string, string][], value: string, onChan
   s.addEventListener('change', () => onChange(s.value));
   label.append(`${text} `, s);
   return label;
+}
+
+/** 16×16 stroke icons (paths only; drawn with currentColor). */
+const ICONS = {
+  eye: ['M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z', 'M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z'],
+  eyeOff: ['M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z', 'M2.5 2.5l11 11'],
+  refresh: ['M13.5 8a5.5 5.5 0 1 1-1.7-4', 'M13.5 2.5v3h-3'],
+  move: ['M2 8h12', 'M5 5 2 8l3 3', 'M11 5l3 3-3 3'],
+  minus: ['M3.5 8h9'],
+  plus: ['M3.5 8h9', 'M8 3.5v9'],
+  close: ['M4 4l8 8', 'M12 4l-8 8'],
+};
+
+function icon(paths: string[]): SVGSVGElement {
+  const s = document.createElementNS(SVG_NS, 'svg');
+  s.setAttribute('viewBox', '0 0 16 16');
+  s.setAttribute('aria-hidden', 'true');
+  for (const d of paths) s.append(svgEl('path', { d }));
+  return s;
+}
+
+function iconButton(label: string, paths: string[], onClick: () => void): HTMLButtonElement {
+  const b = el('button', 'icon');
+  b.type = 'button';
+  b.setAttribute('aria-label', label);
+  b.title = label;
+  b.append(icon(paths));
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+/** A collapsible panel section, open by default. Returns [details, summary]. */
+function section(title: string): [HTMLDetailsElement, HTMLElement] {
+  const d = el('details', 'sect');
+  d.open = true;
+  const s = el('summary', '');
+  s.textContent = title;
+  d.append(s, el('div', 'content'));
+  return [d, s];
+}
+
+function keyItem(swatch: HTMLElement, text: string): HTMLSpanElement {
+  const s = el('span', '');
+  s.append(swatch, text);
+  return s;
 }
 
 function textP(text: string, className = ''): HTMLParagraphElement {

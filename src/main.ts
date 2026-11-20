@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Entry point. Defines window.TabOrderViz once; loading the bundle again (a second
  * bookmarklet click, or the extension re-injecting) reuses the existing instance.
  * Loading the bundle does nothing visible: the bookmarklet and extension call toggle().

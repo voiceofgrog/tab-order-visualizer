@@ -44,8 +44,10 @@ This creates `dist/`:
 ### Bookmarklet (no install, any browser)
 
 1. Run `npm.cmd run serve` and open `http://127.0.0.1:4173/dist/install.html`.
-2. Drag **Tab order** to your bookmarks bar.
+2. Drag **Tab order** to your bookmarks bar. If dragging doesn't work, open **Can't drag it? Add it by hand**, choose **Copy code**, and paste the code as the URL of a new bookmark.
 3. On any page, click the bookmark. Click it again to close.
+
+The install page also explains what the tool does. It and the panel follow your system's light or dark setting.
 
 The bookmarklet is about 52,000 characters. Firefox will not store a bookmark longer than 65,536 characters, so the build fails if the bookmarklet goes over 60,000. To stay small, it leaves out the axe-core checks and uses a simpler way to work out accessible names, so labels on unusual markup may be less exact than in the extension.
 

@@ -68,7 +68,9 @@ test.describe('keyboard operation', () => {
 });
 
 test.describe('the panel passes axe-core', () => {
-  test('no WCAG A/AA violations inside the overlay, including colour contrast', async ({ page }) => {
+  for (const scheme of ['light', 'dark'] as const) {
+  test(`no WCAG A/AA violations inside the overlay (${scheme} mode), including colour contrast`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
     await open(page);
     await panelOf(page).getByText('Fail', { exact: false }).count(); // ensure issues list rendered
     const violations = await page.evaluate(async () => {
@@ -77,6 +79,34 @@ test.describe('the panel passes axe-core', () => {
       return r.violations.map((v) => `${v.id} (${v.nodes.length})`);
     });
     expect(violations).toEqual([]);
+  });
+  }
+});
+
+test.describe('panel header', () => {
+  test('minimise collapses the panel to its header and expand restores it', async ({ page }) => {
+    await open(page);
+    const panel = panelOf(page);
+    await panel.getByRole('button', { name: 'Minimise panel' }).click();
+    await expect(panel.getByRole('button', { name: 'Next stop' })).toBeHidden();
+    await expect(panel.getByRole('button', { name: 'Expand panel' })).toHaveAttribute('aria-expanded', 'false');
+    await panel.getByRole('button', { name: 'Expand panel' }).click();
+    await expect(panel.getByRole('button', { name: 'Next stop' })).toBeVisible();
+  });
+
+  test('severity chips summarise the issues in words', async ({ page }) => {
+    await page.goto('/demo/index.html');
+    await page.evaluate(() => window.TabOrderViz!.show());
+    const panel = panelOf(page);
+    await expect(panel.getByRole('status').first()).toHaveText(/Tab stops/);
+    await expect(panel.getByText(/^\d+ Fail$/)).toBeVisible();
+    await expect(panel.getByText(/^\d+ Review$/)).toBeVisible();
+    await expect(panel.getByText(/^\d+ Advice$/)).toBeVisible();
+  });
+
+  test('a clean page says so', async ({ page }) => {
+    await open(page);
+    await expect(panelOf(page).getByText('No issues found by the automated checks')).toBeVisible();
   });
 });
 

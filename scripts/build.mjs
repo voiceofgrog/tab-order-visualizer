@@ -26,7 +26,7 @@ const compactCss = {
     });
   },
 };
-const common = { bundle: true, format: 'iife', target: 'es2020', minify: true, logLevel: 'warning', plugins: [compactCss] };
+const common = { bundle: true, format: 'iife', target: 'es2022', minify: true, logLevel: 'warning', plugins: [compactCss] };
 // Core build (no axe-core): small enough for a bookmarklet.
 // The bookmarklet build swaps dom-accessibility-api for a small stand-in (src/accname-lite.ts).
 await build({
@@ -68,20 +68,15 @@ if (bookmarklet.length > BOOKMARKLET_LIMIT) {
 }
 const escapeAttr = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+// Install page: scripts/install.template.html with the bookmarklet, its size and the version filled in.
+const pkg = JSON.parse(await readFile(`${root}package.json`, 'utf8'));
+const template = await readFile(`${root}scripts/install.template.html`, 'utf8');
 await writeFile(
   `${dist}/install.html`,
-  `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Install the Tab-Order Visualizer bookmarklet</title>
-<style>body{font:16px/1.5 system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem}
-a.bm{display:inline-block;padding:.5rem 1rem;border:2px solid #1a1a5e;border-radius:6px;color:#1a1a5e;font-weight:700;text-decoration:none}</style>
-</head><body>
-<h1>Install the bookmarklet</h1>
-<p>Drag this link to your bookmarks bar:</p>
-<p><a class="bm" href="${escapeAttr(bookmarklet)}">Tab order</a></p>
-<p>Then open any page and click the bookmark. Click it again to close. Everything runs in your browser; nothing is sent anywhere.</p>
-<p>Some sites block bookmarklets with a Content Security Policy. If nothing happens, use the browser extension build instead.</p>
-</body></html>
-`,
+  template
+    .replace('{{HREF}}', () => escapeAttr(bookmarklet))
+    .replace('{{CHARS}}', bookmarklet.length.toLocaleString('en-US'))
+    .replace('{{VERSION}}', pkg.version),
 );
 
 await copyFile(`${root}extension/manifest.json`, `${dist}/extension/manifest.json`);

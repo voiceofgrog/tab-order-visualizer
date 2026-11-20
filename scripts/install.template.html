@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tab-Order Visualizer: install the bookmarklet</title>
+<style>
+  :root {
+    --bg: #f6f7fb; --card: #ffffff; --fg: #1d2030; --muted: #555b6e; --border: #e2e4ec;
+    --accent: #3730a3; --accent-fg: #ffffff; --soft: #eef0ff; --navy: #1a1a5e; --magenta: #b0006a;
+    --shadow: 0 1px 2px rgba(20, 24, 50, .06), 0 8px 24px rgba(20, 24, 50, .08);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14151c; --card: #1b1d27; --fg: #eceef6; --muted: #a9aec2; --border: #343849;
+      --accent: #a5b4fc; --accent-fg: #14162a; --soft: #2a2e45; --shadow: 0 8px 24px rgba(0, 0, 0, .4); }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+  .skip { position: absolute; left: -9999px; top: 0; }
+  .skip:focus { left: 1rem; top: 1rem; z-index: 10; background: var(--card); padding: .5rem .75rem; border-radius: 8px; }
+  .wrap { max-width: 64rem; margin: 0 auto; padding: 0 1.25rem; }
+  header.site { padding: 1.25rem 0; }
+  .logo { display: inline-flex; align-items: center; gap: .6rem; font-weight: 700; font-size: 1.05rem; }
+  .mark { display: inline-block; width: 26px; height: 26px; border-radius: 13px; background: var(--navy); color: #fff;
+    font: 700 14px/26px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--navy); }
+  .hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2.5rem; align-items: center; padding: 2rem 0 2.5rem; }
+  @media (max-width: 52rem) { .hero { grid-template-columns: 1fr; } }
+  h1 { font-size: clamp(2rem, 4.2vw, 2.9rem); line-height: 1.12; letter-spacing: -.02em; margin: 0 0 1rem; }
+  .lead { font-size: 1.15rem; color: var(--muted); margin: 0 0 1.5rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 1.5rem; }
+  .install { display: flex; flex-direction: column; gap: .9rem; }
+  .install h2 { margin: 0; font-size: 1.1rem; }
+  .bm { display: inline-flex; align-items: center; gap: .6rem; align-self: flex-start; padding: .8rem 1.25rem; border-radius: 12px;
+    background: var(--navy); color: #fff; font-weight: 700; font-size: 1.05rem; text-decoration: none; cursor: grab;
+    box-shadow: 0 2px 4px rgba(26, 26, 94, .25), 0 8px 20px rgba(26, 26, 94, .25); border: 2px dashed rgba(255, 255, 255, .55); }
+  .bm:hover { filter: brightness(1.15); }
+  .bm .mark { width: 22px; height: 22px; line-height: 22px; font-size: 12px; background: #fff; color: var(--navy); box-shadow: none; }
+  .hint { color: var(--muted); font-size: .92rem; margin: 0; }
+  kbd { font: 600 .82em ui-monospace, Consolas, monospace; padding: .1em .4em; border: 1px solid var(--border); border-bottom-width: 2px;
+    border-radius: 5px; background: var(--card); color: var(--fg); white-space: nowrap; }
+  details.fallback { border-top: 1px solid var(--border); padding-top: .8rem; }
+  details.fallback summary { cursor: pointer; font-weight: 600; }
+  details.fallback ol { margin: .6rem 0; padding-left: 1.3rem; }
+  button { font: inherit; font-weight: 600; padding: .5rem 1rem; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); }
+  .status { min-height: 1.6em; font-size: .92rem; color: var(--muted); margin: .3rem 0 0; }
+  .preview { padding: 0; overflow: hidden; }
+  .preview svg { display: block; width: 100%; height: auto; }
+  section { padding: 2rem 0; }
+  h2.section { font-size: 1.5rem; letter-spacing: -.01em; margin: 0 0 1.25rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+  .feature h3 { margin: .6rem 0 .3rem; font-size: 1.02rem; }
+  .feature p { margin: 0; color: var(--muted); font-size: .95rem; }
+  .swatch { display: inline-block; min-width: 26px; height: 26px; padding: 0 5px; text-align: center; font: 700 13px/22px system-ui, sans-serif;
+    color: #fff; border: 2px solid #fff; box-shadow: 0 0 0 1px currentColor, 0 2px 6px rgba(0,0,0,.2); }
+  .swatch.real { background: var(--navy); border-radius: 13px; box-shadow: 0 0 0 1px var(--navy), 0 2px 6px rgba(0,0,0,.2); }
+  .swatch.sugg { background: var(--magenta); border-radius: 5px; box-shadow: 0 0 0 1px var(--magenta), 0 2px 6px rgba(0,0,0,.2); }
+  .swatch.chip { min-width: auto; padding: 0 .6rem; border-radius: 999px; font-size: 12px; border: 0; box-shadow: none; }
+  .chip.fail { background: #fde8e8; color: #8a1010; } .chip.review { background: #fff3d1; color: #6b4a00; } .chip.advice { background: #e6efff; color: #1a3d8a; }
+  .swatch.time { background: var(--soft); color: var(--fg); border: 0; border-radius: 8px; box-shadow: none; font-size: 12px; }
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: .75rem; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 2rem 1fr; gap: .75rem; align-items: start; }
+  .steps li::before { content: counter(s); width: 2rem; height: 2rem; border-radius: 1rem; background: var(--soft); color: var(--accent);
+    font-weight: 700; display: grid; place-items: center; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 48rem) { .two { grid-template-columns: 1fr; } }
+  .two ul { margin: .4rem 0 0; padding-left: 1.2rem; color: var(--muted); }
+  .two li { margin-bottom: .35rem; }
+  .two h3 { margin: 0; font-size: 1.05rem; }
+  footer { padding: 2rem 0 3rem; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--border); margin-top: 1rem; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#install">Skip to install</a>
+<header class="site">
+  <div class="wrap"><span class="logo"><span class="mark" aria-hidden="true">1</span>Tab-Order Visualizer</span></div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <h1>See how the Tab key moves through any page</h1>
+      <p class="lead">A free bookmarklet that numbers every stop the Tab key visits, draws the path between them, flags order problems with plain-language fixes, and estimates how long keyboard and screen reader users take to get around.</p>
+
+      <div class="card install" id="install" tabindex="-1">
+        <h2>Install in one step</h2>
+        <p class="hint">Drag this button to your bookmarks bar. (Show the bar with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>, or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> on a Mac.)</p>
+        <a class="bm" id="bookmarklet" href="{{HREF}}"><span class="mark" aria-hidden="true">1</span>Tab order</a>
+        <p class="hint">Or click it now to try it on this page.</p>
+        <details class="fallback">
+          <summary>Can't drag it? Add it by hand</summary>
+          <ol>
+            <li>Copy the bookmarklet code: <button type="button" id="copy">Copy code</button></li>
+            <li>Create a new bookmark (right-click the bookmarks bar, then <em>Add page</em> or <em>Add bookmark</em>).</li>
+            <li>Name it <strong>Tab order</strong> and paste the code into the URL or Location field.</li>
+          </ol>
+          <p class="status" id="copy-status" role="status"></p>
+        </details>
+      </div>
+    </div>
+
+    <figure class="card preview" aria-labelledby="preview-caption">
+      <svg viewBox="0 0 400 300" role="img" aria-labelledby="preview-title">
+        <title id="preview-title">Example: a page with numbered Tab stops. Arrows show the real order jumping back across a row of cards; dashed arrows and square badges show the suggested order.</title>
+        <defs>
+          <marker id="h1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1a1a5e"/></marker>
+          <marker id="h2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#b0006a"/></marker>
+        </defs>
+        <rect width="400" height="300" fill="#ffffff"/>
+        <rect width="400" height="46" fill="#f3efe6"/>
+        <rect x="20" y="17" width="70" height="12" rx="3" fill="#cfc6b4"/>
+        <rect x="200" y="17" width="44" height="12" rx="3" fill="#8f86c9"/><rect x="256" y="17" width="44" height="12" rx="3" fill="#8f86c9"/><rect x="312" y="17" width="64" height="12" rx="3" fill="#8f86c9"/>
+        <rect x="24" y="70" width="210" height="18" rx="4" fill="#d9dbe6"/>
+        <rect x="24" y="96" width="300" height="9" rx="4" fill="#e9eaf1"/><rect x="24" y="111" width="260" height="9" rx="4" fill="#e9eaf1"/>
+        <g fill="#fbfbfe" stroke="#d6d8e4"><rect x="24" y="148" width="108" height="96" rx="8"/><rect x="146" y="148" width="108" height="96" rx="8"/><rect x="268" y="148" width="108" height="96" rx="8"/></g>
+        <g fill="#8f86c9"><rect x="36" y="220" width="70" height="10" rx="3"/><rect x="158" y="220" width="70" height="10" rx="3"/><rect x="280" y="220" width="70" height="10" rx="3"/></g>
+        <g fill="none" stroke-linecap="round">
+          <g stroke="rgba(12,14,40,.25)" stroke-width="7" transform="translate(1.2 1.8)"><path d="M222 23 Q250 4 276 21"/><path d="M290 32 Q330 120 296 214"/><path d="M276 228 Q160 280 40 230"/><path d="M50 222 Q100 196 150 214"/></g>
+          <g stroke="#fff" stroke-width="5"><path d="M222 23 Q250 4 276 21"/><path d="M290 32 Q330 120 296 214"/><path d="M276 228 Q160 280 40 230"/><path d="M50 222 Q100 196 150 214"/></g>
+          <g stroke="#1a1a5e" stroke-width="2.2" marker-end="url(#h1)"><path d="M222 23 Q250 4 276 21"/><path d="M290 32 Q330 120 296 214"/><path d="M50 222 Q100 196 150 214"/></g>
+          <path d="M276 228 Q160 280 40 230" stroke="#1a1a5e" stroke-width="4" marker-end="url(#h1)"/>
+          <path d="M120 212 Q210 186 266 214" stroke="#fff" stroke-width="5"/>
+          <path d="M120 212 Q210 186 266 214" stroke="#b0006a" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#h2)"/>
+        </g>
+        <rect x="140" y="246" width="40" height="17" rx="8.5" fill="#fff" stroke="#1a1a5e" stroke-width="1.5"/>
+        <text x="160" y="258.5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#1a1a5e">back</text>
+        <g font-family="system-ui, sans-serif" font-size="12" font-weight="700" text-anchor="middle">
+          <g><circle cx="212" cy="23" r="11" fill="#1a1a5e" stroke="#fff" stroke-width="2"/><text x="212" y="27" fill="#fff">1</text></g>
+          <g><circle cx="286" cy="23" r="11" fill="#1a1a5e" stroke="#fff" stroke-width="2"/><text x="286" y="27" fill="#fff">2</text></g>
+          <g><circle cx="286" cy="225" r="11" fill="#1a1a5e" stroke="#fff" stroke-width="2"/><text x="286" y="229" fill="#fff">3</text></g>
+          <g><circle cx="42" cy="225" r="11" fill="#1a1a5e" stroke="#fff" stroke-width="2"/><text x="42" y="229" fill="#fff">4</text></g>
+          <g><circle cx="164" cy="225" r="11" fill="#1a1a5e" stroke="#fff" stroke-width="2"/><text x="164" y="229" fill="#fff">5</text></g>
+          <g><rect x="99" y="202" width="20" height="20" rx="4" fill="#b0006a" stroke="#fff" stroke-width="2"/><text x="109" y="216" fill="#fff">3</text></g>
+          <g><rect x="232" y="202" width="20" height="20" rx="4" fill="#b0006a" stroke="#fff" stroke-width="2"/><text x="242" y="216" fill="#fff">4</text></g>
+        </g>
+      </svg>
+      <figcaption id="preview-caption" class="hint" style="padding: .75rem 1rem">The real order (solid) jumps back across the cards; the suggested order (dashed) follows the layout.</figcaption>
+    </figure>
+  </div>
+
+  <section aria-labelledby="what">
+    <div class="wrap">
+      <h2 class="section" id="what">What you'll see</h2>
+      <div class="grid">
+        <div class="card feature"><span class="swatch real" aria-hidden="true">1</span><h3>The real Tab order</h3><p>Numbered badges and arrows show exactly where Tab goes, including inside components, and why each stop is where it is.</p></div>
+        <div class="card feature"><span class="swatch sugg" aria-hidden="true">1</span><h3>A suggested order</h3><p>Square badges and dashed arrows follow the visual layout, so you can spot where the two disagree.</p></div>
+        <div class="card feature"><span class="swatch chip fail" aria-hidden="true">Fail</span> <span class="swatch chip review" aria-hidden="true">Review</span> <span class="swatch chip advice" aria-hidden="true">Advice</span><h3>Problems, with fixes</h3><p>Hidden but focusable items, keyboard traps, focus hidden under sticky headers or banners, and more. Each comes with a plain-language fix and the relevant WCAG link.</p></div>
+        <div class="card feature"><span class="swatch time" aria-hidden="true">6.3 s</span><h3>Time to reach</h3><p>Estimates for keyboard and screen reader users to reach any element, and what a skip link or a better order would save.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="how">
+    <div class="wrap">
+      <h2 class="section" id="how">How to use it</h2>
+      <div class="card">
+        <ol class="steps">
+          <li><span>Open the page you want to check, then click the <strong>Tab order</strong> bookmark.</span></li>
+          <li><span>Read the badges and arrows on the page. The panel in the corner lists issues and lets you switch to the suggested order, step through stops, change colours and size, or pick an element to time.</span></li>
+          <li><span>Keyboard users: focus moves to the panel when it opens. <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> moves between the page and the panel, and <kbd>Esc</kbd> returns to the page.</span></li>
+          <li><span>Changed something on the page, such as opening a menu? Press <strong>Refresh</strong>. Click the bookmark again to close.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="why">
+    <div class="wrap">
+      <h2 class="section" id="why">Why Tab order matters</h2>
+      <div class="card">
+        <p style="margin-top: 0">Many people never use a mouse. They move through a page with the Tab key, often with a screen reader reading each stop aloud. When the order jumps around, skips things, or lands on something invisible, the page becomes confusing or impossible to use. WCAG 2.2 covers this under <a href="https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html">2.4.3 Focus Order</a> and related success criteria.</p>
+        <p style="margin-bottom: 0">This tool makes the order visible, so editors and developers can catch problems before their users do.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="trust">
+    <div class="wrap">
+      <h2 class="section" id="trust">Privacy and limits</h2>
+      <div class="two">
+        <div class="card"><h3>Private by design</h3><ul>
+          <li>Runs entirely in your browser.</li>
+          <li>Sends nothing anywhere: no network requests, no analytics, no tracking.</li>
+          <li>Stores nothing, and changes nothing on the page apart from its own overlay.</li>
+        </ul></div>
+        <div class="card"><h3>Good to know</h3><ul>
+          <li>It is not proof of accessibility. Automated checks catch only some problems, so also test with a keyboard and a screen reader.</li>
+          <li>Some sites block bookmarklets. If nothing happens, use the browser extension version.</li>
+          <li>To stay small, the bookmarklet leaves out the extra axe-core checks that the extension includes.</li>
+          <li>Time estimates are a model, not a measurement.</li>
+        </ul></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">Tab-Order Visualizer {{VERSION}} · MIT licensed · Bookmarklet size: {{CHARS}} characters</div>
+</footer>
+
+<script>
+  // Copy fallback: copies the link's own javascript: URL. Local only; nothing is sent anywhere.
+  const link = document.getElementById('bookmarklet');
+  const status = document.getElementById('copy-status');
+  document.getElementById('copy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(link.getAttribute('href'));
+      status.textContent = 'Copied. Now paste it into a new bookmark’s URL field.';
+    } catch {
+      status.textContent = 'Copying was blocked by the browser. Right-click the Tab order button and choose "Copy link" instead.';
+    }
+  });
+</script>
+</body>
+</html>

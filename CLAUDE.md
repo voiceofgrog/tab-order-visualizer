@@ -14,6 +14,7 @@ A small, free, client-side tool that overlays a page's real keyboard tab order (
 - npm scripts must be cross-platform: no bash-isms (no `rm -rf`, `&&` chains that assume sh, `export VAR=`).
 - TypeScript, bundled to a single self-contained file (esbuild).
 - Never modify global settings, install global packages, or run anything as administrator.
+- Do not edit files with `Get-Content | Set-Content` in Windows PowerShell 5.1: it reads UTF-8 (no BOM) as cp1252 and writes a BOM, which garbles characters such as “ ” and → . Use the editor tools or a Node script. `.gitattributes` keeps line endings LF.
 
 ## Git rules
 - Repo: `tab-order-visualizer`, default branch `main`.

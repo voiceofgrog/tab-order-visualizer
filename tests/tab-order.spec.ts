@@ -136,7 +136,7 @@ test.describe('overlay', () => {
     await expect(badges).toHaveCount(count);
     await expect(badges.first()).toBeVisible();
     await expect(badges.first()).toHaveCSS('font-size', '12px');
-    await expect(page.getByRole('button', { name: 'Hide overlay' })).toHaveCSS('font-size', '13px');
+    await expect(page.getByRole('button', { name: 'Hide overlay' })).toHaveCSS('font-size', '12.5px');
     await expect(page.getByRole('status').first()).toHaveText(`${count} Tab stops, 2 focusable but not visible.`);
   });
 

@@ -71,18 +71,35 @@ const escapeAttr = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').repla
 // Install page: scripts/install.template.html with the bookmarklet, its size and the version filled in.
 const pkg = JSON.parse(await readFile(`${root}package.json`, 'utf8'));
 const template = await readFile(`${root}scripts/install.template.html`, 'utf8');
-await writeFile(
-  `${dist}/install.html`,
+const installPage = ({ demo, extension }) =>
   template
     .replace('{{HREF}}', () => escapeAttr(bookmarklet))
     .replace('{{CHARS}}', bookmarklet.length.toLocaleString('en-US'))
-    .replace('{{VERSION}}', pkg.version),
-);
+    .replace('{{VERSION}}', pkg.version)
+    .replace('{{DEMO}}', demo)
+    .replace('{{EXTENSION}}', extension);
+// Local copy, served by scripts/serve.mjs from the repo root.
+await writeFile(`${dist}/install.html`, installPage({ demo: '../demo/index.html', extension: '' }));
 
 await copyFile(`${root}extension/manifest.json`, `${dist}/extension/manifest.json`);
 await copyFile(`${root}extension/background.js`, `${dist}/extension/background.js`);
 await copyFile(`${dist}/tov-full.js`, `${dist}/extension/tov-full.js`);
 await copyFile(`${dist}/THIRD-PARTY-LICENSES.txt`, `${dist}/extension/THIRD-PARTY-LICENSES.txt`);
+
+// Hostable site (GitHub Pages): every link relative, so it works under any sub-path.
+// The extension zip is added by the CI workflow (scripts stay dependency-free).
+const site = `${dist}/site`;
+await mkdir(`${site}/demo`, { recursive: true });
+await writeFile(`${site}/index.html`, installPage({
+  demo: 'demo/index.html',
+  extension: ' <a href="tab-order-visualizer-extension.zip">Download the extension (zip)</a>, unzip it, then load the folder as an unpacked extension.',
+}));
+for (const f of ['tov-full.js', 'bookmarklet.txt', 'THIRD-PARTY-LICENSES.txt']) await copyFile(`${dist}/${f}`, `${site}/${f}`);
+for (const page of ['index.html', 'good.html', 'modal.html', 'csp.html']) {
+  const html = await readFile(`${root}demo/${page}`, 'utf8');
+  await writeFile(`${site}/demo/${page}`, html.replaceAll('src="/dist/tov-full.js"', 'src="../tov-full.js"'));
+}
+await writeFile(`${site}/.nojekyll`, ''); // serve files as-is, no Jekyll processing
 
 const kb = (n) => `${(n / 1024).toFixed(1)} KB`;
 console.log(`tov.js           ${kb(Buffer.byteLength(code))}`);

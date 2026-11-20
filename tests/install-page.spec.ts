@@ -36,6 +36,15 @@ test.describe('install page', () => {
     expect(copied).toBe(await readFile('dist/bookmarklet.txt', 'utf8'));
   });
 
+  test('hostable site works from a sub-folder (as on GitHub Pages)', async ({ page }) => {
+    // The local server serves the repo root, so dist/site/ is a sub-path, like /tab-order-visualizer/ on Pages.
+    await page.goto('/dist/site/');
+    await expect(page.getByRole('link', { name: 'Tab order' })).toHaveAttribute('href', /^javascript:/);
+    await page.getByRole('link', { name: 'demo page with deliberate problems' }).click();
+    await expect(page).toHaveURL(/\/dist\/site\/demo\/index\.html$/);
+    await expect.poll(() => page.evaluate(() => typeof (window as unknown as { TabOrderViz?: unknown }).TabOrderViz)).toBe('object');
+  });
+
   for (const scheme of ['light', 'dark'] as const) {
     test(`has no WCAG A/AA violations in ${scheme} mode`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: scheme });

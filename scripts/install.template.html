@@ -90,7 +90,7 @@
         <h2>Install in one step</h2>
         <p class="hint">Drag this button to your bookmarks bar. (Show the bar with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>, or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> on a Mac.)</p>
         <a class="bm" id="bookmarklet" href="{{HREF}}"><span class="mark" aria-hidden="true">1</span>Tab order</a>
-        <p class="hint">Or click it now to try it on this page.</p>
+        <p class="hint">Or click it now to try it on this page, or on the <a href="{{DEMO}}">demo page with deliberate problems</a>.</p>
         <details class="fallback">
           <summary>Can't drag it? Add it by hand</summary>
           <ol>
@@ -189,7 +189,7 @@
         </ul></div>
         <div class="card"><h3>Good to know</h3><ul>
           <li>It is not proof of accessibility. Automated checks catch only some problems, so also test with a keyboard and a screen reader.</li>
-          <li>Some sites block bookmarklets. If nothing happens, use the browser extension version.</li>
+          <li>Some sites block bookmarklets. If nothing happens, use the browser extension version.{{EXTENSION}}</li>
           <li>To stay small, the bookmarklet leaves out the extra axe-core checks that the extension includes.</li>
           <li>Time estimates are a model, not a measurement.</li>
         </ul></div>
@@ -199,7 +199,7 @@
 </main>
 
 <footer>
-  <div class="wrap">Tab-Order Visualizer {{VERSION}} · MIT licensed · Bookmarklet size: {{CHARS}} characters</div>
+  <div class="wrap">Tab-Order Visualizer {{VERSION}} · MIT licensed · Bookmarklet size: {{CHARS}} characters · <a href="https://github.com/voiceofgrog/tab-order-visualizer">Source on GitHub</a></div>
 </footer>
 
 <script>

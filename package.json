@@ -1,0 +1,21 @@
+{
+  "name": "tab-order-visualizer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Overlay a page's real keyboard tab order, flag problems, suggest a better order, and estimate time-to-reach.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "serve": "node scripts/serve.mjs",
+    "test": "npm run build && playwright test --project=chromium",
+    "test:firefox": "npm run build && playwright test --project=firefox",
+    "test:all": "npm run build && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}

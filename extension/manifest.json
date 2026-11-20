@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Tab-Order Visualizer",
+  "version": "0.1.0",
+  "description": "Shows a page's keyboard tab order. Runs locally; sends nothing anywhere.",
+  "action": { "default_title": "Toggle tab order overlay" },
+  "background": { "service_worker": "background.js" },
+  "permissions": ["activeTab", "scripting"]
+}

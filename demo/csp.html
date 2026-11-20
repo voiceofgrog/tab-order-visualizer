@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- A deliberately strict policy, like a hardened site: no scripts at all, no inline styles,
+     and Trusted Types required (blocks innerHTML-style DOM sinks). The tool is injected the way a
+     bookmarklet would run, then must still draw and style its overlay. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'none'; require-trusted-types-for 'script'">
+<title>Tab order demo: strict Content Security Policy</title>
+</head>
+<body>
+<main>
+  <h1>Strict CSP page</h1>
+  <p><a href="#one">First link</a></p>
+  <p><button type="button">A button</button></p>
+  <p><a href="#two">Second link</a></p>
+</main>
+</body>
+</html>

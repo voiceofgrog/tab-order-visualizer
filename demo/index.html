@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tab order demo: deliberately broken page</title>
+<style>
+  body { margin: 0; font: 18px/1.5 Georgia, serif; color: #222; }
+  main, footer { max-width: 50rem; margin: 0 auto; padding: 0 1rem; }
+
+  /* Problem: sticky header tall enough to cover focused elements as you Tab back up (WCAG 2.4.11). */
+  .site-header { position: sticky; top: 0; z-index: 10; height: 110px; background: #f3efe6;
+    border-bottom: 2px solid #8a7f6a; display: flex; align-items: center; gap: 1.5rem; padding: 0 1rem; }
+  .site-header nav a { margin-right: 1rem; }
+  .logo { font-weight: bold; margin: 0; }
+
+  /* Problem: visual order differs from source order (flex `order`). */
+  .cards { display: flex; gap: 1rem; }
+  .card { flex: 1; border: 1px solid #999; padding: .75rem; }
+  .card-a { order: 3; } .card-b { order: 1; } .card-c { order: 2; }
+
+  /* Problem: focusable but invisible. */
+  .offscreen { position: absolute; left: -9999px; }
+  .invisible { opacity: 0; }
+
+  .scroller { height: 6rem; overflow: auto; border: 1px solid #999; padding: 0 .5rem; }
+  .editor { border: 2px solid #999; min-height: 3rem; padding: .5rem; }
+  .filler { height: 40rem; background: repeating-linear-gradient(#fff 0 2rem, #f6f6f6 2rem 4rem); }
+
+  /* Hostile rules: if the overlay's Shadow DOM isolation failed, these would break it. */
+  .badge, .panel, .layer { display: none !important; }
+  button { background: hotpink; font-size: 30px; }
+</style>
+</head>
+<body>
+<!-- Problem: no skip link (WCAG 2.4.1). -->
+<header class="site-header">
+  <p class="logo">Example University</p>
+  <nav aria-label="Main">
+    <a href="#news">News</a>
+    <a href="#events">Events</a>
+    <!-- Problem: positive tabindex pulls these ahead of everything else (WCAG 2.4.3). -->
+    <a href="#contact" tabindex="2">Contact</a>
+  </nav>
+  <input type="search" aria-label="Search the site" tabindex="1">
+</header>
+
+<main>
+  <!-- Problem: two H1s, then a jump from H1 to H4. -->
+  <h1>Welcome to the demo</h1>
+  <h1>A second top-level heading</h1>
+  <h4>Skipped heading levels</h4>
+  <p>This page is broken on purpose, as a test target. <a href="#more">Read more about this page</a></p>
+
+  <section aria-labelledby="featured-h">
+    <h2 id="featured-h">Featured (visual order B, C, A; source order A, B, C)</h2>
+    <div class="cards">
+      <div class="card card-a"><p>Card A</p><a href="#a">Card A details</a></div>
+      <div class="card card-b"><p>Card B</p><a href="#b">Card B details</a></div>
+      <div class="card card-c"><p>Card C</p><a href="#c">Card C details</a></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="hidden-h">
+    <h2 id="hidden-h">Hidden things</h2>
+    <a href="#promo" class="offscreen">Offscreen promo link</a>
+    <button type="button" class="invisible">Invisible button</button>
+    <button type="button" style="display:none">Not rendered button</button>
+    <button type="button" disabled>Disabled button</button>
+    <button type="button" tabindex="-1">Script-only button</button>
+    <div inert><button type="button">Inert button</button></div>
+    <details><summary>More options</summary><a href="#opt">Option inside closed details</a></details>
+  </section>
+
+  <form aria-labelledby="form-h" onsubmit="return false">
+    <h2 id="form-h">Newsletter</h2>
+    <fieldset><legend>Size</legend>
+      <label><input type="radio" name="size" value="s"> Small</label>
+      <label><input type="radio" name="size" value="m" checked> Medium</label>
+      <label><input type="radio" name="size" value="l"> Large</label>
+    </fieldset>
+    <fieldset><legend>Colour</legend>
+      <label><input type="radio" name="colour" value="red"> Red</label>
+      <label><input type="radio" name="colour" value="blue"> Blue</label>
+    </fieldset>
+    <label>Email <input type="email" name="email"></label>
+    <button type="button">Subscribe</button>
+  </form>
+
+  <section aria-labelledby="widget-h">
+    <h2 id="widget-h">A component using Shadow DOM</h2>
+    <demo-widget><a href="#help">Slotted help link</a></demo-widget>
+  </section>
+
+  <section aria-labelledby="scroll-h">
+    <h2 id="scroll-h">Scrollable box with nothing focusable inside</h2>
+    <div class="scroller">
+      <p>Terms and conditions. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+      <p>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+      <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</p>
+      <p>Duis aute irure dolor in reprehenderit in voluptate velit esse.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="trap-h">
+    <h2 id="trap-h">Keyboard trap</h2>
+    <!-- Problem: once focused, Tab and Shift+Tab cannot leave (WCAG 2.1.2). Add ?trap=off to disable. -->
+    <div id="notes-editor" class="editor" tabindex="0" role="textbox" aria-label="Notes editor">Type notes here</div>
+    <p><a href="#after">Link after the trap</a></p>
+  </section>
+
+  <div class="filler" aria-hidden="true"></div>
+</main>
+
+<footer><p><a href="#privacy">Privacy</a></p></footer>
+
+<script>
+  customElements.define('demo-widget', class extends HTMLElement {
+    constructor() {
+      super();
+      const root = this.attachShadow({ mode: 'open' });
+      root.innerHTML = `
+        <style>:host { display: block; border: 1px dashed #666; padding: .5rem; } button { font-size: 16px; }</style>
+        <p>Inside the component's Shadow DOM:</p>
+        <button type="button">Widget first in source</button>
+        <button type="button" tabindex="1">Widget tabindex 1</button>
+        <slot></slot>`;
+    }
+  });
+
+  const trapOn = new URLSearchParams(location.search).get('trap') !== 'off';
+  document.getElementById('notes-editor').addEventListener('keydown', (e) => {
+    if (trapOn && e.key === 'Tab') e.preventDefault();
+  });
+</script>
+<script src="/dist/tov.js"></script>
+</body>
+</html>

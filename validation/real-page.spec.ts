@@ -55,10 +55,12 @@ test(`tool order vs real Tab presses on ${URL_TO_TEST}`, async ({ page }) => {
       const i = w.__stops.indexOf(a);
       const text = (a.getAttribute('aria-label') ?? a.textContent ?? a.getAttribute('title') ?? '').replace(/\s+/g, ' ').trim().slice(0, 50);
       const r = a.getBoundingClientRect();
-      const l = Math.max(r.left, 0) + 2, rt = Math.min(r.right, innerWidth) - 2, t = Math.max(r.top, 0) + 2, b = Math.min(r.bottom, innerHeight) - 2;
+      const l = Math.max(r.left, 0), rt = Math.min(r.right, innerWidth), t = Math.max(r.top, 0), b = Math.min(r.bottom, innerHeight);
       const related = (h: Element | null) => !!h && (h === a || a!.contains(h) || h.contains(a!) || (a!.getRootNode() as ShadowRoot).host === h);
-      const pts = [[(l + rt) / 2, (t + b) / 2], [l, t], [rt, t], [l, b], [rt, b]];
-      const isCovered = a.localName !== 'iframe' && rt > l && b > t && pts.every(([x, y]) => !related(document.elementFromPoint(x, y)));
+      // Same measurement as the tool: centre plus 20%/80% points (inside rounded shapes).
+      const px = (f: number) => l + (rt - l) * f, py = (f: number) => t + (b - t) * f;
+      const pts = [[px(0.5), py(0.5)], [px(0.2), py(0.2)], [px(0.8), py(0.2)], [px(0.2), py(0.8)], [px(0.8), py(0.8)]];
+      const isCovered = a.localName !== 'iframe' && rt - l >= 1 && b - t >= 1 && pts.every(([x, y]) => !related(document.elementFromPoint(x, y)));
       return { i, desc: `${text} <${a.localName}${a.id ? '#' + a.id : ''}>`, covered: isCovered, toolSaysCovered: w.__covered.has(a) };
     });
     if (hit.covered) {

@@ -92,15 +92,21 @@ function coverage(el: HTMLElement): { by: Element; entirely: boolean } | null {
   return { by: positionedAncestor(first) ?? first, entirely: covered === pts.length };
 }
 
-function samplePoints(r: DOMRect): [number, number][] {
-  const left = Math.max(r.left, 0) + 2;
-  const right = Math.min(r.right, window.innerWidth) - 2;
-  const top = Math.max(r.top, 0) + 2;
-  const bottom = Math.min(r.bottom, window.innerHeight) - 2;
-  if (right <= left || bottom <= top) return [];
-  const cx = (left + right) / 2;
-  const cy = (top + bottom) / 2;
-  return [[cx, cy], [left, top], [right, top], [left, bottom], [right, bottom]];
+/**
+ * Centre plus four points at 20% and 80% of the visible box. Points near the corners would
+ * fall outside rounded shapes (pills, circles, rounded skip links) and "see" whatever is
+ * behind them, which made fully visible items look partly covered. 20/80 stays inside
+ * even a circle (distance from centre 0.42 of the diameter).
+ */
+export function samplePoints(r: DOMRect): [number, number][] {
+  const left = Math.max(r.left, 0);
+  const right = Math.min(r.right, window.innerWidth);
+  const top = Math.max(r.top, 0);
+  const bottom = Math.min(r.bottom, window.innerHeight);
+  if (right - left < 1 || bottom - top < 1) return [];
+  const x = (f: number) => left + (right - left) * f;
+  const y = (f: number) => top + (bottom - top) * f;
+  return [[x(0.5), y(0.5)], [x(0.2), y(0.2)], [x(0.8), y(0.2)], [x(0.2), y(0.8)], [x(0.8), y(0.8)]];
 }
 
 function probeTab(el: HTMLElement, shift: boolean): { prevented: boolean; moved: boolean } {
@@ -156,19 +162,23 @@ export function ownIssues(order: OrderResult, suggested: Stop[], probe: Probe): 
     groups.set(key, g);
   }
   for (const g of groups.values()) {
-    const what = coverName(g.by);
+    const cover = coverDesc(g.by);
     const n = g.stops.length;
     const when = g.dirs.size > 1 ? 'tabbing in either direction' : g.dirs.has('forward') ? 'tabbing forwards' : 'tabbing backwards (Shift+Tab)';
     const r = g.by.getBoundingClientRect();
     const edge = r.top + r.height / 2 < window.innerHeight / 2 ? 'top' : 'bottom';
+    // Scroll padding only helps with content that stays put while the page scrolls.
+    const fix = cover.pinned
+      ? `Add scroll-padding-${edge} to the html element, at least as tall as ${cover.the} (for example html { scroll-padding-${edge}: ${Math.ceil(r.height) + 10}px; }), so the browser keeps focused items clear of it.` +
+        (cover.the.endsWith('element') ? ' For a banner or dialog, also consider letting users dismiss it, or not covering content until they do.' : '')
+      : `${cover.the.charAt(0).toUpperCase()}${cover.the.slice(1)} ${describe(g.by)} is drawn on top of ${n === 1 ? 'it' : 'them'}. ` +
+        'Look for positioning, negative margins or z-index that make the two overlap, and move or restack them so the focused item is fully visible.';
     add({
       rule: g.entirely ? 'focus-obscured' : 'focus-partly-obscured',
       severity: g.entirely ? 'fail' : 'advice',
-      title: `Focused item${n === 1 ? '' : 's'} ${g.entirely ? 'hidden' : 'partly hidden'} under ${what}`,
-      summary: `When ${when}, ${n} item${n === 1 ? ' is' : 's are'} ${g.entirely ? 'completely' : 'partly'} covered by ${what} ${describe(g.by)} at the moment ${n === 1 ? 'it receives' : 'they receive'} focus${g.entirely ? ', so keyboard users cannot see where focus is' : ''}.`,
-      fix:
-        `Add scroll-padding-${edge} to the html element, at least as tall as the ${what} (for example html { scroll-padding-${edge}: ${Math.ceil(r.height) + 10}px; }), so the browser keeps focused items clear of it.` +
-        (what.includes('footer') || what.includes('header') ? '' : ' For a banner or dialog, also consider letting users dismiss it, or not covering content until they do.'),
+      title: `Focused item${n === 1 ? '' : 's'} ${g.entirely ? 'hidden' : 'partly hidden'} under ${cover.a}`,
+      summary: `When ${when}, ${n} item${n === 1 ? ' is' : 's are'} ${g.entirely ? 'completely' : 'partly'} covered by ${cover.a} ${describe(g.by)} at the moment ${n === 1 ? 'it receives' : 'they receive'} focus${g.entirely ? ', so keyboard users cannot see where focus is' : ''}.`,
+      fix,
       note: g.entirely ? undefined : 'Partly covered passes WCAG 2.4.11 (AA) but fails 2.4.12 (AAA), which asks for the whole item to be visible.',
       wcag: g.entirely ? ['2.4.11'] : ['2.4.12'],
       elements: g.stops.map((s) => s.element),
@@ -321,12 +331,13 @@ export function isSkipLink(el: Element): boolean {
   return !!document.getElementById(decodeURIComponent(href.slice(1)));
 }
 
-function coverName(el: Element): string {
+/** "a sticky header", "the fixed element", ... plus whether it stays put while the page scrolls. */
+function coverDesc(el: Element): { a: string; the: string; pinned: boolean } {
   const pos = getComputedStyle(el).position;
-  const kind = pos === 'sticky' ? 'sticky' : pos === 'fixed' ? 'fixed' : 'overlapping';
-  if (el.matches('header, [role=banner]')) return `a ${kind} header`;
-  if (el.matches('footer, [role=contentinfo]')) return `a ${kind} footer`;
-  return `${kind === 'overlapping' ? 'an' : 'a'} ${kind} element`;
+  const pinned = pos === 'sticky' || pos === 'fixed';
+  const thing = el.matches('header, [role=banner]') ? 'header' : el.matches('footer, [role=contentinfo]') ? 'footer' : 'element';
+  const noun = `${pinned ? `${pos} ` : ''}${thing}`;
+  return { a: `${/^[aeiou]/.test(noun) ? 'an' : 'a'} ${noun}`, the: `the ${noun}`, pinned };
 }
 
 function positionedAncestor(el: Element): Element | null {

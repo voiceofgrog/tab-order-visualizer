@@ -31,13 +31,15 @@ async function realCovered(page: Page, key: 'Tab' | 'Shift+Tab', presses: number
       while (a?.shadowRoot?.activeElement) a = a.shadowRoot.activeElement;
       if (!a || a === document.body) return null;
       const r = a.getBoundingClientRect();
-      const l = Math.max(r.left, 0) + 2, rt = Math.min(r.right, innerWidth) - 2;
-      const t = Math.max(r.top, 0) + 2, b = Math.min(r.bottom, innerHeight) - 2;
+      const l = Math.max(r.left, 0), rt = Math.min(r.right, innerWidth);
+      const t = Math.max(r.top, 0), b = Math.min(r.bottom, innerHeight);
       // Invisible stops are reported as a separate (worse) problem, and an element with no
       // on-screen area cannot be "covered", so both are outside this check.
       const stop = window.TabOrderViz!.compute().stops.find((s) => s.element === a);
-      if (!stop || stop.hidden || rt <= l || b <= t) return null;
-      const pts = [[(l + rt) / 2, (t + b) / 2], [l, t], [rt, t], [l, b], [rt, b]];
+      if (!stop || stop.hidden || rt - l < 1 || b - t < 1) return null;
+      // Same measurement as the tool: centre plus 20%/80% points (inside rounded shapes).
+      const x = (f: number) => l + (rt - l) * f, y = (f: number) => t + (b - t) * f;
+      const pts = [[x(0.5), y(0.5)], [x(0.2), y(0.2)], [x(0.8), y(0.2)], [x(0.2), y(0.8)], [x(0.8), y(0.8)]];
       const inside = (h: Element | null) => {
         for (let n: Node | null = h; n; n = n.parentNode ?? (n as ShadowRoot).host ?? null) if (n === a) return true;
         for (let n: Node | null = a; n; n = n.parentNode ?? (n as ShadowRoot).host ?? null) if (n === h) return true;

@@ -45,6 +45,27 @@ test.describe('install page', () => {
     await expect.poll(() => page.evaluate(() => typeof (window as unknown as { TabOrderViz?: unknown }).TabOrderViz)).toBe('object');
   });
 
+  // Dogfooding: our own page must pass our own checks. (A rounded skip link once produced a
+  // false "partly covered" advice here, because corner sample points fell outside the curve.)
+  test('the tool finds no issues on the install page (bookmarklet build)', async ({ page }) => {
+    await page.goto('/dist/install.html');
+    await page.getByRole('link', { name: 'Tab order' }).click();
+    const panel = page.getByRole('region', { name: 'Tab order visualizer' });
+    await expect(panel.getByRole('status').first()).toHaveText(/Tab stops?\./);
+    await expect(panel.getByText('No issues found by the automated checks')).toBeVisible();
+  });
+
+  test('the tool finds no issues on the install page (full build with axe-core)', async ({ page }) => {
+    await page.goto('/dist/install.html');
+    await page.addScriptTag({ path: 'dist/tov-full.js' });
+    const r = await page.evaluate(async () => {
+      const api = (window as unknown as { TabOrderViz: { scan(): Promise<{ axe: string; issues: { title: string }[] }> } }).TabOrderViz;
+      const s = await api.scan();
+      return { axe: s.axe, issues: s.issues.map((i) => i.title) };
+    });
+    expect(r).toEqual({ axe: 'ran', issues: [] });
+  });
+
   for (const scheme of ['light', 'dark'] as const) {
     test(`has no WCAG A/AA violations in ${scheme} mode`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: scheme });

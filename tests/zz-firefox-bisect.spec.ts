@@ -41,6 +41,27 @@ test.describe('firefox crash bisect', () => {
     });
     await stillAlive(page);
   });
+  // Round 2: the full overlay, with axe-core limited to one rule set (swapped-in runner).
+  for (const rules of [['region'], ['landmark-unique'], ['landmark-one-main'],
+    ['tabindex', 'heading-order', 'page-has-heading-one', 'empty-heading', 'bypass', 'scrollable-region-focusable', 'frame-focusable-content']]) {
+    test(`read all rects and labels, then overlay with axe rules: ${rules.join(', ')}`, { tag: ['@cross-browser', '@bisect'] }, async ({ page }) => {
+      await page.goto('/demo/index.html');
+      await page.evaluate(() => window.TabOrderViz!.compute().stops.map((s) => {
+        const r = s.element.getBoundingClientRect();
+        return `${s.index} ${s.label} @ ${r.x},${r.y},${r.width}x${r.height}`;
+      }));
+      await page.evaluate((rules) => {
+        const w = window as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<unknown> }; __tovAxeRunner: () => Promise<unknown[]> };
+        w.__tovAxeRunner = async () => {
+          await w.axe.run({ exclude: [['tab-order-viz']] }, { runOnly: { type: 'rule', values: rules } });
+          return [];
+        };
+        window.TabOrderViz!.show();
+      }, rules);
+      await expect(page.getByRole('region', { name: 'Tab order visualizer' }).getByRole('status').first()).toHaveText(/Tab stops/);
+      await stillAlive(page);
+    });
+  }
   for (const rules of [['region'], ['landmark-unique'], ['landmark-one-main'],
     ['tabindex', 'heading-order', 'page-has-heading-one', 'empty-heading', 'bypass', 'scrollable-region-focusable', 'frame-focusable-content']]) {
     test(`read positions, then axe-core rules: ${rules.join(', ')}`, { tag: ['@cross-browser', '@bisect'] }, async ({ page }) => {

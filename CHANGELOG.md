@@ -11,7 +11,8 @@
 
 **Checks**
 - Many Tab stops outside any landmark; an area Tab enters three or more separate times (returns from nested landmarks do not count).
-- axe-core rules `region`, `landmark-unique` and `landmark-one-main` (full build and extension).
+- Landmarks of the same kind with the same name, or none (our own check: axe-core's `landmark-unique` rule crashes Firefox's page process when run with the overlay open).
+- axe-core rules `region` and `landmark-one-main` (full build and extension).
 
 **Bookmarklets**
 - Two versions: standard (Chrome, Edge, Safari) and Firefox, which leaves out the Region view to stay under Firefox's bookmark size limit. The install page offers the right one for the browser, with a switch.

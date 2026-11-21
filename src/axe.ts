@@ -38,21 +38,10 @@ const RULES = rules as unknown as Record<string, RuleText>;
 
 
 export async function runAxe(axe: AxeLike): Promise<Issue[]> {
-  // Our panel is a landmark (role="region"). Landmark rules such as landmark-unique gather every
-  // landmark on the page, including excluded ones, so they would judge our panel too. Worse, in
-  // Firefox that crashes the page's process (seen in CI). For the length of the run only, the
-  // panel stops being a landmark; its role is restored straight after.
-  const panel = document.querySelector(OVERLAY_TAG)?.shadowRoot?.querySelector('[role=region]') ?? null;
-  panel?.removeAttribute('role');
-  let res: AxeResults;
-  try {
-    res = await axe.run(
-      { exclude: [[OVERLAY_TAG]] },
-      { runOnly: { type: 'rule', values: config.axeRules }, resultTypes: ['violations', 'incomplete'] },
-    );
-  } finally {
-    panel?.setAttribute('role', 'region');
-  }
+  const res = await axe.run(
+    { exclude: [[OVERLAY_TAG]] },
+    { runOnly: { type: 'rule', values: config.axeRules }, resultTypes: ['violations', 'incomplete'] },
+  );
   const out: Issue[] = [];
   const add = (r: AxeRuleResult, kind: 'violation' | 'incomplete') => {
     const t = RULES[r.id];

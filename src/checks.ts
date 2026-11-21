@@ -422,3 +422,39 @@ export function regionIssues(map: RegionMap, total: number): Issue[] {
   }
   return issues;
 }
+
+/**
+ * Landmarks of the same kind that screen reader users cannot tell apart (same name, or none).
+ * Our own check rather than axe-core's landmark-unique, which crashes Firefox's page process
+ * when run with the overlay open (found in CI). Only sees landmarks that contain Tab stops.
+ */
+export function duplicateLandmarkIssues(map: RegionMap): Issue[] {
+  const byKey = new Map<string, RegionMap['regions']>();
+  for (const r of map.regions) {
+    if (r.kind !== 'landmark' || r.role === 'main') continue;
+    const key = `${r.role}|${r.named ? r.name.toLowerCase() : ''}`;
+    byKey.set(key, [...(byKey.get(key) ?? []), r]);
+  }
+  const issues: Issue[] = [];
+  for (const group of byKey.values()) {
+    if (group.length < 2) continue;
+    const els = group.map((r) => r.element!).filter(Boolean);
+    const role = group[0].role;
+    issues.push({
+      id: `tool-landmark-duplicate-${issues.length}`,
+      rule: 'landmark-duplicate',
+      source: 'tool',
+      severity: 'advice',
+      title: `${group.length} ${role} landmarks with the same name`,
+      summary: group[0].named
+        ? `${group.length} ${role} landmarks are all called "${group[0].name}", so screen reader users cannot tell them apart in the landmarks list.`
+        : `${group.length} ${role} landmarks have no name, so screen reader users cannot tell them apart in the landmarks list.`,
+      fix: `Give each one a distinct name, for example aria-label="Main" and aria-label="Footer links".`,
+      note: 'A best practice, not a WCAG failure on its own. Only landmarks that contain Tab stops are checked.',
+      wcag: ['1.3.1'],
+      elements: els,
+      labels: els.map(labelOf),
+    });
+  }
+  return issues;
+}

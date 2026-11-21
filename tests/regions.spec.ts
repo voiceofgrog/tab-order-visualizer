@@ -52,6 +52,17 @@ test.describe('region map', () => {
   });
 });
 
+test.describe('duplicate landmarks', () => {
+  test('two unnamed navigation landmarks are flagged; a uniquely named one is not', async ({ page }) => {
+    await page.goto('/demo/good.html');
+    const issues = await page.evaluate(async () => {
+      document.body.insertAdjacentHTML('beforeend', '<nav><a href="#x">X</a></nav><nav><a href="#y">Y</a></nav>');
+      return (await window.TabOrderViz!.scan()).issues.filter((i) => i.rule === 'landmark-duplicate').map((i) => `${i.title} [${i.labels.join(' | ')}]`);
+    });
+    expect(issues).toEqual(['2 navigation landmarks with the same name [X | Y]']);
+  });
+});
+
 test.describe('region view', () => {
   test('is the default on a busy page, with one labelled box per region', async ({ page }) => {
     await open(page, '/demo/busy.html');

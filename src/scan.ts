@@ -2,7 +2,7 @@
  * One full scan: Tab order -> focus measurements -> suggested order -> issues (ours + axe).
  */
 import config from '../config/defaults.json';
-import { emptyProbe, ownIssues, probeFocus, regionIssues } from './checks';
+import { duplicateLandmarkIssues, emptyProbe, ownIssues, probeFocus, regionIssues } from './checks';
 import { computeRegions } from './regions';
 import { computeOrder, labelOf } from './order';
 import { suggestOrder } from './suggest';
@@ -31,7 +31,7 @@ async function doScan(): Promise<ScanResult> {
   const { issues, jumps } = ownIssues(order, suggested, probe);
   // The Firefox bookmarklet build leaves the Region view out (bookmark size limit).
   const regions = __LITE__ ? { regions: [], segments: [], outside: 0 } : computeRegions(order.stops);
-  if (!__LITE__) issues.push(...regionIssues(regions, order.stops.length));
+  if (!__LITE__) issues.push(...regionIssues(regions, order.stops.length), ...duplicateLandmarkIssues(regions));
 
   let axeIssues: Issue[] = [];
   let axe: ScanResult['axe'] = 'not-included';

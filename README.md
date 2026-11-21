@@ -106,7 +106,8 @@ Sources and more detail: [docs/research.md](docs/research.md).
 | Tab order jumps backwards against the visual layout | this tool | Review (suggested) | 2.4.3, 1.3.2 |
 | Many Tab stops outside any landmark | this tool | Advice | (1.3.1, best practice) |
 | An area Tab enters three or more separate times | this tool | Advice (suggested) | 2.4.3, 1.3.2 |
-| Content outside landmarks; landmarks without distinct names; no `main` | axe-core | Advice | (1.3.1, best practice) |
+| Landmarks of the same kind with the same name (or none) | this tool | Advice | (1.3.1, best practice) |
+| Content outside landmarks; no `main` | axe-core | Advice | (1.3.1, best practice) |
 | More than one H1 | this tool | Advice | (1.3.1, best practice) |
 | No skip link (when landmarks already satisfy 2.4.1) | this tool | Advice | 2.4.1 |
 

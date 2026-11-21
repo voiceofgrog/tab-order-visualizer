@@ -84,7 +84,6 @@
     "scrollable-region-focusable",
     "frame-focusable-content",
     "region",
-    "landmark-unique",
     "landmark-one-main"
   ],
   "display": {

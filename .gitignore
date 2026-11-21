@@ -22,3 +22,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
+
+# Local AI-assistant working notes (kept on disk, not published)
+CLAUDE.md

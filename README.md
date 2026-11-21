@@ -66,6 +66,8 @@ Click the toolbar button to toggle the overlay. The extension only gets access t
 
 ## How browsers decide Tab order
 
+Sources and more detail: [docs/research.md](docs/research.md).
+
 1. **What is focusable:** links with `href`, buttons, form fields, `<summary>`, elements with `contenteditable`, and anything with a valid `tabindex`.
 2. **What Tab skips:** `tabindex="-1"`, disabled controls, anything `inert` or outside an open modal dialog, anything not rendered (`display: none`) or `visibility: hidden`, and content inside a closed `<details>`.
 3. **Positive tabindex goes first:** `tabindex="1"`, then `"2"`, and so on, then everything else in source (HTML) order. This is why positive values cause jumpy navigation.

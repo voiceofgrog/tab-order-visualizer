@@ -11,12 +11,27 @@ async function axeViolations(page: Page): Promise<string[]> {
 }
 
 test.describe('install page', () => {
-  test('offers the current bookmarklet as a draggable link', { tag: '@cross-browser' }, async ({ page }) => {
-    const expected = await readFile('dist/bookmarklet.txt', 'utf8');
+  test('offers the right bookmarklet for this browser as a draggable link', { tag: '@cross-browser' }, async ({ page, browserName }) => {
+    const standard = await readFile('dist/bookmarklet.txt', 'utf8');
+    const firefox = await readFile('dist/bookmarklet-firefox.txt', 'utf8');
     await page.goto('/dist/install.html');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('See how the Tab key moves through any page');
-    await expect(page.getByRole('link', { name: 'Tab order' })).toHaveAttribute('href', expected);
-    await expect(page.getByText(`Bookmarklet size: ${expected.length.toLocaleString('en-US')} characters`)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Tab order' })).toHaveAttribute('href', browserName === 'firefox' ? firefox : standard);
+    const fmt = (s: string) => s.length.toLocaleString('en-US');
+    await expect(page.getByText(`Bookmarklet size: ${fmt(standard)} characters (Firefox version: ${fmt(firefox)})`)).toBeVisible();
+  });
+
+  test('a switch offers the other version', async ({ page }) => {
+    const standard = await readFile('dist/bookmarklet.txt', 'utf8');
+    const firefox = await readFile('dist/bookmarklet-firefox.txt', 'utf8');
+    await page.goto('/dist/install.html');
+    const link = page.getByRole('link', { name: 'Tab order' });
+    await expect(page.getByText('Standard version, for Chrome, Edge and Safari.')).toBeVisible();
+    await page.getByRole('button', { name: 'Use the Firefox version' }).click();
+    await expect(link).toHaveAttribute('href', firefox);
+    await expect(page.getByText(/^Firefox version: everything except the Region view/)).toBeVisible();
+    await page.getByRole('button', { name: 'Use the standard version' }).click();
+    await expect(link).toHaveAttribute('href', standard);
   });
 
   test('clicking the link runs the bookmarklet on the page', { tag: '@cross-browser' }, async ({ page }) => {

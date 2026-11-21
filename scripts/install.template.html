@@ -44,6 +44,7 @@
   details.fallback { border-top: 1px solid var(--border); padding-top: .8rem; }
   details.fallback summary { cursor: pointer; font-weight: 600; }
   details.fallback ol { margin: .6rem 0; padding-left: 1.3rem; }
+  button.link { padding: 0; border: 0; background: none; color: var(--accent); text-decoration: underline; font-weight: 400; cursor: pointer; }
   button { font: inherit; font-weight: 600; padding: .5rem 1rem; border-radius: 10px; cursor: pointer;
     border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); }
   .status { min-height: 1.6em; font-size: .92rem; color: var(--muted); margin: .3rem 0 0; }
@@ -89,7 +90,8 @@
       <div class="card install" id="install" tabindex="-1">
         <h2>Install in one step</h2>
         <p class="hint">Drag this button to your bookmarks bar. (Show the bar with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>, or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> on a Mac.)</p>
-        <a class="bm" id="bookmarklet" href="{{HREF}}"><span class="mark" aria-hidden="true">1</span>Tab order</a>
+        <a class="bm" id="bookmarklet" href="{{HREF}}" data-standard="{{HREF}}" data-firefox="{{HREF_FIREFOX}}"><span class="mark" aria-hidden="true">1</span>Tab order</a>
+        <p class="hint" id="variant"><span id="variant-text">Standard version, for Chrome, Edge and Safari.</span> <button type="button" class="link" id="variant-switch">Use the Firefox version</button></p>
         <p class="hint">Or click it now to try it on this page, or on the <a href="{{DEMO}}">demo page with deliberate problems</a>.</p>
         <details class="fallback">
           <summary>Can't drag it? Add it by hand</summary>
@@ -199,12 +201,25 @@
 </main>
 
 <footer>
-  <div class="wrap">Tab-Order Visualizer {{VERSION}} · MIT licensed · Bookmarklet size: {{CHARS}} characters · <a href="https://github.com/voiceofgrog/tab-order-visualizer">Source on GitHub</a></div>
+  <div class="wrap">Tab-Order Visualizer {{VERSION}} · MIT licensed · Bookmarklet size: {{CHARS}} characters (Firefox version: {{CHARS_FIREFOX}}) · <a href="https://github.com/voiceofgrog/tab-order-visualizer">Source on GitHub</a></div>
 </footer>
 
 <script>
   // Copy fallback: copies the link's own javascript: URL. Local only; nothing is sent anywhere.
   const link = document.getElementById('bookmarklet');
+  // Two versions: Firefox only stores bookmarks up to about 65,536 characters, so its version
+  // leaves out the Region view. Offer the right one for this browser, with a switch.
+  const variantText = document.getElementById('variant-text');
+  const variantSwitch = document.getElementById('variant-switch');
+  const showVariant = (firefox) => {
+    link.setAttribute('href', firefox ? link.dataset.firefox : link.dataset.standard);
+    variantText.textContent = firefox
+      ? 'Firefox version: everything except the Region view, which does not fit in a Firefox bookmark.'
+      : 'Standard version, for Chrome, Edge and Safari.';
+    variantSwitch.textContent = firefox ? 'Use the standard version' : 'Use the Firefox version';
+    variantSwitch.onclick = () => showVariant(!firefox);
+  };
+  showVariant(/Firefox\//.test(navigator.userAgent));
   const status = document.getElementById('copy-status');
   document.getElementById('copy').addEventListener('click', async () => {
     try {

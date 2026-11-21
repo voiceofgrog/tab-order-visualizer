@@ -105,3 +105,29 @@ test.describe('decluttering', () => {
     expect(before.back).toBeGreaterThan(0);
   });
 });
+
+test.describe('two bookmarklets', () => {
+  /** Opens the busy demo without its own script, then runs a bookmarklet's code, as a click would. */
+  async function runBookmarklet(page: Page, file: string) {
+    const { readFile } = await import('node:fs/promises');
+    const url = await readFile(file, 'utf8');
+    await page.route('**/dist/tov-full.js', (route) => route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }));
+    await page.goto('/demo/busy.html');
+    await page.evaluate(decodeURIComponent(url.slice('javascript:'.length)));
+    await expect(panelOf(page).getByRole('status').first()).toHaveText(/Tab stops/);
+  }
+
+  test('the standard bookmarklet includes the Region view', async ({ page }) => {
+    await runBookmarklet(page, 'dist/bookmarklet.txt');
+    await expect(panelOf(page).getByRole('radio', { name: 'Regions' })).toBeChecked();
+    await expect(page.locator('tab-order-viz .rlabel')).toHaveCount(7);
+  });
+
+  test('the Firefox bookmarklet leaves it out and says why', async ({ page }) => {
+    await runBookmarklet(page, 'dist/bookmarklet-firefox.txt');
+    await expect(panelOf(page).getByRole('radio', { name: 'Regions' })).toHaveCount(0);
+    await expect(page.locator('tab-order-viz .rlabel')).toHaveCount(0);
+    await expect(panelOf(page).getByText(/^This is the Firefox version of the bookmarklet, which leaves out the Region view/)).toBeVisible();
+    expect(await visibleBadges(page)).toBeGreaterThan(0);
+  });
+});

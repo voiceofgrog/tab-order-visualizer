@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.0 (2026-11-21)
+
+**Busy pages**
+- Region view: one labelled box per landmark (solid), inferred group (dashed) or stops outside any landmark (dotted), with arrows for the order Tab moves between them. The default above 150 stops; switch with Detail: Regions / Every stop.
+- Landmarks with very many stops are split into inferred groups (lists, toolbars, named containers).
+- Expand one region from its box or from the new Regions list in the panel (the keyboard route).
+- "Long jumps only" hides short hops but keeps every backward jump.
+- Overlapping badges merge into one range badge, such as "220–224 (5)".
+
+**Checks**
+- Many Tab stops outside any landmark; an area Tab enters three or more separate times (returns from nested landmarks do not count).
+- axe-core rules `region`, `landmark-unique` and `landmark-one-main` (full build and extension).
+
+**Bookmarklets**
+- Two versions: standard (Chrome, Edge, Safari) and Firefox, which leaves out the Region view to stay under Firefox's bookmark size limit. The install page offers the right one for the browser, with a switch.
+- The build strips the config file's explanatory comments from the bundles.
+- New demo page: `demo/busy.html`.
+
 ## 1.0.0 (2026-11-20)
 
 First public release. Site: https://voiceofgrog.github.io/tab-order-visualizer/

@@ -25,6 +25,7 @@ import { estimate, formatSeconds, PROFILES, skipLinkEstimate } from './time';
 import type { Issue, ScanResult, Severity } from './types';
 import { VERSION } from './version';
 import type { Region } from './regions';
+import { REGION_CSS, buildRegionUi, drawOverview, drawRegion, makeRegionLabels, regionRect, renderRegionList, type Kit, type RegionUi } from './overlay-regions';
 
 interface Palette { label: string; real: string; realText: string; suggested: string; suggestedText: string; halo: string }
 interface Size { label: string; badge: number; font: number; stroke: number }
@@ -33,7 +34,7 @@ type Pt = readonly [number, number];
 
 const PALETTES = config.display.palettes as Record<string, Palette>;
 const SIZES = config.display.sizes as Record<string, Size>;
-const WCAG = wcag as Record<string, { name: string; level: string; url: string }>;
+const WCAG = wcag as unknown as Record<string, { name: string; level: string; slug: string }>;
 const SEVERITY_LABEL: Record<Severity, string> = { fail: 'Fail', review: 'Review', advice: 'Advice' };
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_SHOW_BUTTONS = 8;
@@ -94,16 +95,6 @@ svg { position: absolute; top: 0; left: 0; overflow: visible; }
 .head-real { fill: var(--real); }
 .head-sugg { fill: var(--sugg); }
 .pill { fill: var(--halo); stroke: var(--real); stroke-width: 1.5px; }
-.region { fill: var(--real); fill-opacity: .05; stroke: var(--real); stroke-width: 2px; }
-.region.inferred { stroke-dasharray: 8 5; }
-.region.outside { stroke-dasharray: 2 4; }
-.region-halo { fill: none; stroke: var(--halo); stroke-width: 5px; }
-.real.rflow { stroke-width: calc(var(--stroke) * 1.8); }
-.rlabel { position: absolute; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: auto; cursor: pointer;
-  box-sizing: border-box; padding: 2px 8px; border-radius: 6px; border: 2px solid var(--halo); background: var(--real); color: var(--real-text);
-  font: 600 12px/16px system-ui, -apple-system, 'Segoe UI', sans-serif; box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 3px 8px rgba(0,0,0,.18); }
-.rlabel.inferred, .rlabel.outside { background: var(--halo); color: var(--real); border: 2px dashed var(--real); }
-.rlabel:hover { filter: brightness(1.15); }
 .badge.grouped { padding: 0 6px; }
 .pill-text { font: 700 10.5px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--real); }
 .badge, .sbadge {
@@ -198,8 +189,6 @@ thead th { font-size: 11.5px; font-weight: 600; color: var(--ui-muted); }
 tbody th { font-weight: 600; }
 .basis { padding-left: 16px; list-style: disc; }
 .basis li { margin-bottom: 4px; }
-.regions li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
-.regions button[aria-pressed=true] { background: var(--ui-accent); border-color: var(--ui-accent); color: var(--ui-accent-fg); }
 .foot { margin: 4px 0 0; padding-top: 10px; border-top: 1px solid var(--ui-border); }
 @media (forced-colors: active) {
   .layer { forced-color-adjust: none; }
@@ -243,14 +232,11 @@ export class Overlay {
   /** Regions (boxes per landmark) or every stop. Chosen automatically on first render. */
   #detail: 'regions' | 'stops' = 'stops';
   #detailChosen = false;
-  #detailRadios: HTMLInputElement[] = [];
+  #regionUi: RegionUi | null = null;
   #expanded: Region | null = null;
   #longOnly = false;
   #regionBox!: HTMLDivElement;
   #regionLabels: HTMLDivElement[] = [];
-  #regionsTitle!: HTMLElement;
-  #regionList!: HTMLUListElement;
-  #showAllButton!: HTMLButtonElement;
   #arrows = true;
   #outlines = true;
   #dim = false;
@@ -422,22 +408,15 @@ export class Overlay {
     }
     viewSet.append(legend, viewRow);
 
-    const detailSet = el('fieldset', '');
-    const detailLegend = el('legend', '');
-    detailLegend.textContent = 'Detail';
-    const detailRow = el('div', 'seg');
-    for (const [value, text] of [['regions', 'Regions'], ['stops', 'Every stop']] as const) {
-      const label = radio('tov-detail', value, text, value === this.#detail, () => {
-        this.#detail = value;
+    if (!__LITE__) {
+      this.#regionUi = buildRegionUi(KIT, this.#detail, (v) => {
+        this.#detail = v;
         this.#detailChosen = true;
         this.#expanded = null;
         this.#renderRegionList();
         this.#layout();
-      });
-      this.#detailRadios.push(label.querySelector('input')!);
-      detailRow.append(label);
+      }, () => this.#expand(null));
     }
-    detailSet.append(detailLegend, detailRow);
 
     const toggles = el('div', 'row');
     toggles.append(
@@ -469,16 +448,8 @@ export class Overlay {
     issues.lastElementChild!.append(this.#issuesNote, this.#issuesList);
 
     const [display] = section('Display');
-    display.lastElementChild!.append(detailSet, viewSet, toggles, selects, key);
+    display.lastElementChild!.append(...(this.#regionUi ? [this.#regionUi.detailSet] : []), viewSet, toggles, selects, key);
 
-    // Regions list: the keyboard-accessible way to expand a region (the boxes on the page are
-    // mouse shortcuts and are hidden from assistive technology like the rest of the drawing).
-    const [regionsSect, regionsSummary] = section('Regions');
-    this.#regionsTitle = regionsSummary;
-    this.#regionList = el('ul', 'regions');
-    this.#showAllButton = button('Show all regions', () => this.#expand(null));
-    this.#showAllButton.hidden = true;
-    regionsSect.lastElementChild!.append(this.#showAllButton, this.#regionList);
     const [step] = section('Step through');
     step.lastElementChild!.append(stepButtons, this.#stepOut);
     const [time] = section('Time to reach (estimate)');
@@ -494,7 +465,7 @@ export class Overlay {
     site.textContent = 'Check for a newer version';
     foot.append(`Version ${VERSION} · `, site);
 
-    this.#body.append(this.#status, this.#chips, this.#notesBox, keys, display, regionsSect, step, time, issues, foot);
+    this.#body.append(this.#status, this.#chips, this.#notesBox, keys, display, ...(this.#regionUi ? [this.#regionUi.section] : []), step, time, issues, foot);
     panel.append(header, this.#body);
     return panel;
   }
@@ -701,20 +672,17 @@ export class Overlay {
       this.#suggBox.append(b);
       return b;
     });
-    if (!this.#detailChosen) {
-      this.#detail = stops.length > config.regions.autoThreshold ? 'regions' : 'stops';
-      for (const input of this.#detailRadios) input.checked = input.value === this.#detail;
+    if (!__LITE__) {
+      if (!this.#detailChosen) {
+        this.#detail = stops.length > config.regions.autoThreshold ? 'regions' : 'stops';
+        for (const input of this.#regionUi!.radios) input.checked = input.value === this.#detail;
+      }
+      this.#expanded = null;
+      this.#regionLabels = makeRegionLabels(KIT, this.#regionBox, r.regions, (g) => this.#expand(g));
+      this.#renderRegionList();
+    } else if (stops.length > config.regions.autoThreshold) {
+      this.#notesBox.append(textP('This is the Firefox version of the bookmarklet, which leaves out the Region view so it fits Firefox\'s bookmark size limit. For busy pages, use the browser extension.', 'small'));
     }
-    this.#expanded = null;
-    this.#regionBox.replaceChildren();
-    this.#regionLabels = r.regions.regions.map((g) => {
-      const label = el('div', `rlabel ${g.kind}`);
-      label.textContent = regionCaption(g);
-      label.addEventListener('click', () => this.#expand(g));
-      this.#regionBox.append(label);
-      return label;
-    });
-    this.#renderRegionList();
     this.#renderIssues(r);
     this.#renderTime(r);
     this.#layout();
@@ -722,38 +690,26 @@ export class Overlay {
 
   /** Panel list of regions; each button expands that region to show its stops. */
   #renderRegionList(): void {
-    if (!this.#result) return;
-    const { regions } = this.#result.regions;
-    this.#regionsTitle.textContent = `Regions (${regions.length})`;
-    this.#showAllButton.hidden = !this.#expanded;
-    this.#regionList.replaceChildren(
-      ...regions.map((g) => {
-        const li = el('li', '');
-        const b = button(g.name, () => this.#expand(this.#expanded === g ? null : g));
-        b.setAttribute('aria-pressed', String(this.#expanded === g));
-        const kind = g.kind === 'landmark' ? `${g.role} landmark` : g.kind === 'inferred' ? 'inferred group' : 'no landmark';
-        const meta = el('span', 'small');
-        meta.textContent =
-          ` ${kind} · ${g.stops.length} stop${g.stops.length === 1 ? '' : 's'} · from press ${g.stops[0].index}` +
-          (g.entries > 1 ? ` · entered ${g.entries} times` : '');
-        li.append(b, meta);
-        return li;
-      }),
-    );
+    if (!__LITE__) {
+      if (!this.#result || !this.#regionUi) return;
+      renderRegionList(KIT, this.#regionUi, this.#result.regions, this.#expanded, (g) => this.#expand(this.#expanded === g ? null : g));
+    }
   }
 
   /** Shows one region's stops in detail (others hidden), or all regions again with null. */
   #expand(region: Region | null): void {
-    this.#expanded = region;
-    if (region) {
-      if (this.#detail !== 'regions') {
-        this.#detail = 'regions';
-        for (const input of this.#detailRadios) input.checked = input.value === 'regions';
+    if (!__LITE__) {
+      this.#expanded = region;
+      if (region) {
+        if (this.#detail !== 'regions') {
+          this.#detail = 'regions';
+          for (const input of this.#regionUi!.radios) input.checked = input.value === 'regions';
+        }
+        (region.element ?? region.stops[0].element).scrollIntoView({ block: 'nearest', inline: 'nearest' });
       }
-      (region.element ?? region.stops[0].element).scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      this.#renderRegionList();
+      this.#layout();
     }
-    this.#renderRegionList();
-    this.#layout();
   }
 
   /** Severity counts as text chips ("2 Fail"), never colour alone. */
@@ -813,7 +769,7 @@ export class Overlay {
         if (n) w.append(', ');
         if (!info) return void w.append(sc);
         const a = el('a', '');
-        a.href = info.url;
+        a.href = `https://www.w3.org/WAI/WCAG22/Understanding/${info.slug}.html`;
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
         a.textContent = `${sc} ${info.name} (${info.level})`;
@@ -912,67 +868,19 @@ export class Overlay {
     this.#svg.replaceChildren(arrowheads());
     if (this.#dim) this.#svg.append(svgEl('rect', { class: 'dim', x: '0', y: '0', width: String(docW), height: String(docH) }));
 
-    // Region box: the landmark's own box, or (for groups without one) the union of its stops.
-    const regionRect = (g: Region): DOMRect | null => {
-      if (g.element && g.kind !== 'outside') {
-        const r = box(g.element);
-        if (r.width >= 1 && r.height >= 1) return r;
-      }
-      const rs = g.stops.filter((s) => !s.hidden).map((s) => box(s.element)).filter((r) => r.width >= 1 || r.height >= 1);
-      if (!rs.length) return null;
-      const l = Math.min(...rs.map((r) => r.left)), t = Math.min(...rs.map((r) => r.top));
-      return new DOMRect(l - 6, t - 6, Math.max(...rs.map((r) => r.right)) - l + 12, Math.max(...rs.map((r) => r.bottom)) - t + 12);
-    };
-    const drawRegion = (g: Region, r: DOMRect) => {
-      const a = { x: String(r.left), y: String(r.top), width: String(r.width), height: String(r.height), rx: '6' };
-      this.#svg.append(svgEl('rect', { ...a, class: 'region-halo' }), svgEl('rect', { ...a, class: `region ${g.kind}` }));
-    };
-
-    const { regions } = this.#result;
-    const overview = this.#detail === 'regions' && !this.#expanded;
+    const overview = !__LITE__ && this.#detail === 'regions' && !this.#expanded;
     this.#regionBox.hidden = !overview;
-    if (overview) {
+    if (!__LITE__ && overview) {
       // Region overview: one box per region and arrows for the order Tab moves between them.
       this.#realBox.hidden = true;
       this.#suggBox.hidden = true;
-      const anchor = new Map<Region, Pt>();
-      regions.regions.forEach((g, i) => {
-        const r = regionRect(g);
-        const label = this.#regionLabels[i];
-        if (!r) {
-          label.style.display = 'none';
-          return;
-        }
-        label.style.display = '';
-        drawRegion(g, r);
-        const x = Math.min(Math.max(r.left + 4, 2), docW - 40);
-        const y = Math.min(Math.max(r.top + 4, 2), docH - 24);
-        place(label, x, y);
-        anchor.set(g, [x + 10, y + 10]);
-      });
-      if (this.#arrows) {
-        const seen = new Set<string>();
-        for (let i = 0; i + 1 < regions.segments.length; i++) {
-          const from = regions.segments[i].region, to = regions.segments[i + 1].region;
-          const a = anchor.get(from), b = anchor.get(to);
-          const key = `${from.id}>${to.id}`;
-          if (!a || !b || seen.has(key)) continue;
-          seen.add(key);
-          const c = curve(a, b, 10);
-          if (!c) continue;
-          this.#svg.append(
-            svgEl('path', { class: 'shadow', d: c.d, transform: 'translate(1.2 1.8)' }),
-            svgEl('path', { class: 'halo', d: c.d }),
-            svgEl('path', { class: 'real rflow', d: c.d, 'marker-end': 'url(#tov-head-real)' }),
-          );
-        }
-      }
+      drawOverview(KIT, this.#svg, this.#result.regions, this.#regionLabels, box, docW, docH, this.#arrows);
     } else {
       // Stop detail: everything, or only the expanded region's stops.
       const only = this.#expanded ? new Set(this.#expanded.stops) : null;
-      if (this.#expanded) {
-        const r = regionRect(this.#expanded);
-        if (r) drawRegion(this.#expanded, r);
+      if (!__LITE__ && this.#expanded) {
+        const r = regionRect(this.#expanded, box);
+        if (r) drawRegion(KIT, this.#svg, this.#expanded, r);
       }
       const realStops = only ? order.stops.filter((s) => only.has(s)) : order.stops;
       const suggStops = only ? suggested.filter((s) => only.has(s)) : suggested;
@@ -1065,12 +973,6 @@ export class Overlay {
   }
 }
 
-/** "1. Chat · complementary · 85 stops · from press 799" */
-function regionCaption(g: Region): string {
-  const kind = g.kind === 'landmark' ? g.role : g.kind === 'inferred' ? 'inferred' : 'no landmark';
-  return `${g.name} · ${kind} · ${g.stops.length} stop${g.stops.length === 1 ? '' : 's'} · from press ${g.stops[0].index}`;
-}
-
 /** A gentle quadratic curve between badge centres, trimmed to the badge edges. */
 function curve(a: Pt, b: Pt, R: number): { d: string; mid: Pt } | null {
   const [x1, y1] = a;
@@ -1112,11 +1014,11 @@ function place(b: HTMLElement | undefined, x: number, y: number): void {
 function applyStyles(root: ShadowRoot): void {
   try {
     const sheet = new CSSStyleSheet();
-    sheet.replaceSync(STYLE);
+    sheet.replaceSync(STYLE + (__LITE__ ? '' : REGION_CSS));
     root.adoptedStyleSheets = [sheet];
   } catch {
     const style = document.createElement('style');
-    style.textContent = STYLE;
+    style.textContent = STYLE + (__LITE__ ? '' : REGION_CSS);
     root.append(style);
   }
 }
@@ -1222,6 +1124,8 @@ function keyItem(swatch: HTMLElement, text: string): HTMLSpanElement {
   s.append(swatch, text);
   return s;
 }
+
+const KIT: Kit = { el, button, radio, section, svgEl, curve, place };
 
 function textP(text: string, className = ''): HTMLParagraphElement {
   const p = el('p', className);

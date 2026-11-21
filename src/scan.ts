@@ -29,8 +29,9 @@ async function doScan(): Promise<ScanResult> {
   const suggested = suggestOrder(order.stops);
   const announcements = new Map(order.stops.map((s) => [s, announce(s)]));
   const { issues, jumps } = ownIssues(order, suggested, probe);
-  const regions = computeRegions(order.stops);
-  issues.push(...regionIssues(regions, order.stops.length));
+  // The Firefox bookmarklet build leaves the Region view out (bookmark size limit).
+  const regions = __LITE__ ? { regions: [], segments: [], outside: 0 } : computeRegions(order.stops);
+  if (!__LITE__) issues.push(...regionIssues(regions, order.stops.length));
 
   let axeIssues: Issue[] = [];
   let axe: ScanResult['axe'] = 'not-included';

@@ -18,9 +18,14 @@ It draws numbered badges and arrows on the page itself, explains why each elemen
 | Square badge, dashed arrow | Suggested order, based on visual reading order |
 | Dashed round badge and outline | Focusable but not visible |
 | Thicker arrow labelled "back" | Tab order jumps backwards on screen |
+| Range badge such as "220–224 (5)" | Several stops whose badges would sit on top of each other |
+| Labelled box (Region view) | A landmark (solid outline), an inferred group (dashed) or stops outside any landmark (dotted) |
+
+**Busy pages.** Above 150 stops, the tool starts in the **Region view**: one labelled box per landmark, such as "Chat · complementary · 85 stops · from press 799", with arrows for the order Tab moves between them. A landmark with many stops (a long feed inside `<main>`, say) is split into inferred groups: lists, toolbars and named containers, labelled "inferred" so they are never mistaken for real landmarks. Click a box, or use the **Regions** list in the panel, to see just that area's stops. **Long jumps only** hides short hops between neighbours but keeps every backward jump.
 
 The panel (bottom right) has:
-- **Show:** real order, suggested order, or both. Arrows, outlines and dim-page toggles. Colour presets (including high contrast and a set for dark pages) and three sizes.
+- **Detail:** Regions or every stop. **Show:** real order, suggested order, or both. Arrows, outlines, dim-page and long-jumps-only toggles. Colour presets (including high contrast and a set for dark pages) and three sizes.
+- **Regions:** every landmark and group, with its stop count, where Tab first reaches it, and how many separate times Tab enters it.
 - **Step through:** previous and next stop, with the reasons for each stop's position.
 - **Time to reach (estimate):** choose a target from the list, or pick it on the page. You get a table of estimated times for three user profiles, plus what a skip link or the suggested order would save.
 - **Issues:** each issue has a severity (**Fail**, **Review**, **Advice**), what is wrong and why it matters, how to fix it, WCAG links, and **Show** buttons that point at the elements.
@@ -40,10 +45,10 @@ This creates `dist/`:
 
 | File | Use |
 |---|---|
-| `dist/install.html` | Page with the bookmarklet link to drag to your bookmarks bar |
+| `dist/install.html` | Page with the bookmarklet to drag to your bookmarks bar (it offers the right version for your browser) |
 | `dist/extension/` | Unpacked browser extension (full build, including axe-core checks) |
 | `dist/tov-full.js` | Full script (core + axe-core), for pages and tests you control |
-| `dist/tov.js` | Core script, the source of the bookmarklet |
+| `dist/tov.js`, `dist/tov-lite.js` | Core scripts, the sources of the standard and Firefox bookmarklets |
 
 ### Bookmarklet (no install, any browser)
 
@@ -53,7 +58,14 @@ This creates `dist/`:
 
 The install page also explains what the tool does. It and the panel follow your system's light or dark setting.
 
-The bookmarklet is about 52,000 characters. Firefox will not store a bookmark longer than 65,536 characters, so the build fails if the bookmarklet goes over 60,000. To stay small, it leaves out the axe-core checks and uses a simpler way to work out accessible names, so labels on unusual markup may be less exact than in the extension.
+There are two versions, because Firefox will not store a bookmark longer than about 65,536 characters:
+
+| Version | Size | Includes |
+|---|---|---|
+| Standard (Chrome, Edge, Safari) | about 68,000 characters | Everything except the axe-core checks |
+| Firefox | about 59,000 characters (the build fails above 60,000) | Everything except the axe-core checks and the Region view |
+
+The install page offers the right one for your browser, with a switch to get the other. Both leave out axe-core and use a simpler way to work out accessible names, so labels on unusual markup may be less exact than in the extension, which has everything.
 
 **Content Security Policy (CSP):** some sites restrict what scripts can run. The tool is built to keep working under strict policies (no `eval`, no `innerHTML`, styles applied through constructed stylesheets), and the tests check this on a strict demo page. Whether a browser lets a bookmarklet *start* on a strict page depends on the browser. If clicking it does nothing, check the browser console for a CSP message and use the extension instead.
 
@@ -92,6 +104,9 @@ Sources and more detail: [docs/research.md](docs/research.md).
 | Keyboard trap (Tab cancelled, focus stays) | this tool | Fail | 2.1.2 |
 | Page script takes over Tab (normal in modal dialogs; check it) | this tool | Review | 2.1.2, 2.4.3 |
 | Tab order jumps backwards against the visual layout | this tool | Review (suggested) | 2.4.3, 1.3.2 |
+| Many Tab stops outside any landmark | this tool | Advice | (1.3.1, best practice) |
+| An area Tab enters three or more separate times | this tool | Advice (suggested) | 2.4.3, 1.3.2 |
+| Content outside landmarks; landmarks without distinct names; no `main` | axe-core | Advice | (1.3.1, best practice) |
 | More than one H1 | this tool | Advice | (1.3.1, best practice) |
 | No skip link (when landmarks already satisfy 2.4.1) | this tool | Advice | 2.4.1 |
 

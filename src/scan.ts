@@ -2,7 +2,8 @@
  * One full scan: Tab order -> focus measurements -> suggested order -> issues (ours + axe).
  */
 import config from '../config/defaults.json';
-import { emptyProbe, ownIssues, probeFocus } from './checks';
+import { emptyProbe, ownIssues, probeFocus, regionIssues } from './checks';
+import { computeRegions } from './regions';
 import { computeOrder, labelOf } from './order';
 import { suggestOrder } from './suggest';
 import { announce } from './time';
@@ -28,6 +29,8 @@ async function doScan(): Promise<ScanResult> {
   const suggested = suggestOrder(order.stops);
   const announcements = new Map(order.stops.map((s) => [s, announce(s)]));
   const { issues, jumps } = ownIssues(order, suggested, probe);
+  const regions = computeRegions(order.stops);
+  issues.push(...regionIssues(regions, order.stops.length));
 
   let axeIssues: Issue[] = [];
   let axe: ScanResult['axe'] = 'not-included';
@@ -48,7 +51,7 @@ async function doScan(): Promise<ScanResult> {
     ? [...issues.filter((i) => i.rule !== 'no-skip-link'), ...axeIssues]
     : [...issues, ...axeIssues];
   all.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
-  return { order, suggested, issues: all, jumps, announcements, axe, axeMessage };
+  return { order, suggested, issues: all, jumps, announcements, regions, axe, axeMessage };
 }
 
 /**

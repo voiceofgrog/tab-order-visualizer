@@ -24,6 +24,7 @@ import { contains } from './checks';
 import { estimate, formatSeconds, PROFILES, skipLinkEstimate } from './time';
 import type { Issue, ScanResult, Severity } from './types';
 import { VERSION } from './version';
+import type { Region } from './regions';
 
 interface Palette { label: string; real: string; realText: string; suggested: string; suggestedText: string; halo: string }
 interface Size { label: string; badge: number; font: number; stroke: number }
@@ -93,6 +94,17 @@ svg { position: absolute; top: 0; left: 0; overflow: visible; }
 .head-real { fill: var(--real); }
 .head-sugg { fill: var(--sugg); }
 .pill { fill: var(--halo); stroke: var(--real); stroke-width: 1.5px; }
+.region { fill: var(--real); fill-opacity: .05; stroke: var(--real); stroke-width: 2px; }
+.region.inferred { stroke-dasharray: 8 5; }
+.region.outside { stroke-dasharray: 2 4; }
+.region-halo { fill: none; stroke: var(--halo); stroke-width: 5px; }
+.real.rflow { stroke-width: calc(var(--stroke) * 1.8); }
+.rlabel { position: absolute; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: auto; cursor: pointer;
+  box-sizing: border-box; padding: 2px 8px; border-radius: 6px; border: 2px solid var(--halo); background: var(--real); color: var(--real-text);
+  font: 600 12px/16px system-ui, -apple-system, 'Segoe UI', sans-serif; box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 3px 8px rgba(0,0,0,.18); }
+.rlabel.inferred, .rlabel.outside { background: var(--halo); color: var(--real); border: 2px dashed var(--real); }
+.rlabel:hover { filter: brightness(1.15); }
+.badge.grouped { padding: 0 6px; }
 .pill-text { font: 700 10.5px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--real); }
 .badge, .sbadge {
   position: absolute; transform: translate(-50%, -50%); box-sizing: border-box;
@@ -186,6 +198,8 @@ thead th { font-size: 11.5px; font-weight: 600; color: var(--ui-muted); }
 tbody th { font-weight: 600; }
 .basis { padding-left: 16px; list-style: disc; }
 .basis li { margin-bottom: 4px; }
+.regions li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+.regions button[aria-pressed=true] { background: var(--ui-accent); border-color: var(--ui-accent); color: var(--ui-accent-fg); }
 .foot { margin: 4px 0 0; padding-top: 10px; border-top: 1px solid var(--ui-border); }
 @media (forced-colors: active) {
   .layer { forced-color-adjust: none; }
@@ -226,6 +240,17 @@ export class Overlay {
   #realBadges: HTMLDivElement[] = [];
   #suggBadges: HTMLDivElement[] = [];
   #view: View = 'real';
+  /** Regions (boxes per landmark) or every stop. Chosen automatically on first render. */
+  #detail: 'regions' | 'stops' = 'stops';
+  #detailChosen = false;
+  #detailRadios: HTMLInputElement[] = [];
+  #expanded: Region | null = null;
+  #longOnly = false;
+  #regionBox!: HTMLDivElement;
+  #regionLabels: HTMLDivElement[] = [];
+  #regionsTitle!: HTMLElement;
+  #regionList!: HTMLUListElement;
+  #showAllButton!: HTMLButtonElement;
   #arrows = true;
   #outlines = true;
   #dim = false;
@@ -258,7 +283,8 @@ export class Overlay {
     this.#svg = document.createElementNS(SVG_NS, 'svg');
     this.#realBox = el('div', 'box');
     this.#suggBox = el('div', 'box');
-    this.#layer.append(this.#svg, this.#suggBox, this.#realBox);
+    this.#regionBox = el('div', 'box');
+    this.#layer.append(this.#svg, this.#suggBox, this.#realBox, this.#regionBox);
     this.#wrap.append(this.#layer, this.#buildPanel());
     root.append(this.#wrap);
     document.documentElement.append(this.#host);
@@ -396,11 +422,29 @@ export class Overlay {
     }
     viewSet.append(legend, viewRow);
 
+    const detailSet = el('fieldset', '');
+    const detailLegend = el('legend', '');
+    detailLegend.textContent = 'Detail';
+    const detailRow = el('div', 'seg');
+    for (const [value, text] of [['regions', 'Regions'], ['stops', 'Every stop']] as const) {
+      const label = radio('tov-detail', value, text, value === this.#detail, () => {
+        this.#detail = value;
+        this.#detailChosen = true;
+        this.#expanded = null;
+        this.#renderRegionList();
+        this.#layout();
+      });
+      this.#detailRadios.push(label.querySelector('input')!);
+      detailRow.append(label);
+    }
+    detailSet.append(detailLegend, detailRow);
+
     const toggles = el('div', 'row');
     toggles.append(
       checkbox('Arrows', this.#arrows, (v) => { this.#arrows = v; this.#layout(); }),
       checkbox('Outlines', this.#outlines, (v) => { this.#outlines = v; this.#layout(); }),
       checkbox('Dim page', this.#dim, (v) => { this.#dim = v; this.#layout(); }),
+      checkbox('Long jumps only', this.#longOnly, (v) => { this.#longOnly = v; this.#layout(); }),
     );
 
     const selects = el('div', 'row');
@@ -425,7 +469,16 @@ export class Overlay {
     issues.lastElementChild!.append(this.#issuesNote, this.#issuesList);
 
     const [display] = section('Display');
-    display.lastElementChild!.append(viewSet, toggles, selects, key);
+    display.lastElementChild!.append(detailSet, viewSet, toggles, selects, key);
+
+    // Regions list: the keyboard-accessible way to expand a region (the boxes on the page are
+    // mouse shortcuts and are hidden from assistive technology like the rest of the drawing).
+    const [regionsSect, regionsSummary] = section('Regions');
+    this.#regionsTitle = regionsSummary;
+    this.#regionList = el('ul', 'regions');
+    this.#showAllButton = button('Show all regions', () => this.#expand(null));
+    this.#showAllButton.hidden = true;
+    regionsSect.lastElementChild!.append(this.#showAllButton, this.#regionList);
     const [step] = section('Step through');
     step.lastElementChild!.append(stepButtons, this.#stepOut);
     const [time] = section('Time to reach (estimate)');
@@ -441,7 +494,7 @@ export class Overlay {
     site.textContent = 'Check for a newer version';
     foot.append(`Version ${VERSION} · `, site);
 
-    this.#body.append(this.#status, this.#chips, this.#notesBox, keys, display, step, time, issues, foot);
+    this.#body.append(this.#status, this.#chips, this.#notesBox, keys, display, regionsSect, step, time, issues, foot);
     panel.append(header, this.#body);
     return panel;
   }
@@ -648,8 +701,58 @@ export class Overlay {
       this.#suggBox.append(b);
       return b;
     });
+    if (!this.#detailChosen) {
+      this.#detail = stops.length > config.regions.autoThreshold ? 'regions' : 'stops';
+      for (const input of this.#detailRadios) input.checked = input.value === this.#detail;
+    }
+    this.#expanded = null;
+    this.#regionBox.replaceChildren();
+    this.#regionLabels = r.regions.regions.map((g) => {
+      const label = el('div', `rlabel ${g.kind}`);
+      label.textContent = regionCaption(g);
+      label.addEventListener('click', () => this.#expand(g));
+      this.#regionBox.append(label);
+      return label;
+    });
+    this.#renderRegionList();
     this.#renderIssues(r);
     this.#renderTime(r);
+    this.#layout();
+  }
+
+  /** Panel list of regions; each button expands that region to show its stops. */
+  #renderRegionList(): void {
+    if (!this.#result) return;
+    const { regions } = this.#result.regions;
+    this.#regionsTitle.textContent = `Regions (${regions.length})`;
+    this.#showAllButton.hidden = !this.#expanded;
+    this.#regionList.replaceChildren(
+      ...regions.map((g) => {
+        const li = el('li', '');
+        const b = button(g.name, () => this.#expand(this.#expanded === g ? null : g));
+        b.setAttribute('aria-pressed', String(this.#expanded === g));
+        const kind = g.kind === 'landmark' ? `${g.role} landmark` : g.kind === 'inferred' ? 'inferred group' : 'no landmark';
+        const meta = el('span', 'small');
+        meta.textContent =
+          ` ${kind} · ${g.stops.length} stop${g.stops.length === 1 ? '' : 's'} · from press ${g.stops[0].index}` +
+          (g.entries > 1 ? ` · entered ${g.entries} times` : '');
+        li.append(b, meta);
+        return li;
+      }),
+    );
+  }
+
+  /** Shows one region's stops in detail (others hidden), or all regions again with null. */
+  #expand(region: Region | null): void {
+    this.#expanded = region;
+    if (region) {
+      if (this.#detail !== 'regions') {
+        this.#detail = 'regions';
+        for (const input of this.#detailRadios) input.checked = input.value === 'regions';
+      }
+      (region.element ?? region.stops[0].element).scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+    this.#renderRegionList();
     this.#layout();
   }
 
@@ -806,23 +909,100 @@ export class Overlay {
       return inside ? [cx(r.right - R), cy(r.bottom + R + 3)] : [cx(r.right + R + 3), cy(r.top + Math.min(R, r.height / 2))];
     };
 
-    const realPts = order.stops.map(realPos);
-    realPts.forEach(([x, y], i) => place(this.#realBadges[i], x, y));
-    const suggPts = suggested.map(suggPos);
-    suggPts.forEach(([x, y], i) => place(this.#suggBadges[i], x, y));
-
     this.#svg.replaceChildren(arrowheads());
     if (this.#dim) this.#svg.append(svgEl('rect', { class: 'dim', x: '0', y: '0', width: String(docW), height: String(docH) }));
-    if (this.#outlines) {
-      for (const s of showReal ? order.stops : suggested) {
-        const r = box(s.element);
-        if (r.width < 1 && r.height < 1) continue;
-        const a = { x: String(r.left - 2), y: String(r.top - 2), width: String(r.width + 4), height: String(r.height + 4), rx: '3' };
-        this.#svg.append(svgEl('rect', { ...a, class: 'outline-halo' }), svgEl('rect', { ...a, class: s.hidden ? 'outline hidden-stop' : 'outline' }));
+
+    // Region box: the landmark's own box, or (for groups without one) the union of its stops.
+    const regionRect = (g: Region): DOMRect | null => {
+      if (g.element && g.kind !== 'outside') {
+        const r = box(g.element);
+        if (r.width >= 1 && r.height >= 1) return r;
       }
+      const rs = g.stops.filter((s) => !s.hidden).map((s) => box(s.element)).filter((r) => r.width >= 1 || r.height >= 1);
+      if (!rs.length) return null;
+      const l = Math.min(...rs.map((r) => r.left)), t = Math.min(...rs.map((r) => r.top));
+      return new DOMRect(l - 6, t - 6, Math.max(...rs.map((r) => r.right)) - l + 12, Math.max(...rs.map((r) => r.bottom)) - t + 12);
+    };
+    const drawRegion = (g: Region, r: DOMRect) => {
+      const a = { x: String(r.left), y: String(r.top), width: String(r.width), height: String(r.height), rx: '6' };
+      this.#svg.append(svgEl('rect', { ...a, class: 'region-halo' }), svgEl('rect', { ...a, class: `region ${g.kind}` }));
+    };
+
+    const { regions } = this.#result;
+    const overview = this.#detail === 'regions' && !this.#expanded;
+    this.#regionBox.hidden = !overview;
+    if (overview) {
+      // Region overview: one box per region and arrows for the order Tab moves between them.
+      this.#realBox.hidden = true;
+      this.#suggBox.hidden = true;
+      const anchor = new Map<Region, Pt>();
+      regions.regions.forEach((g, i) => {
+        const r = regionRect(g);
+        const label = this.#regionLabels[i];
+        if (!r) {
+          label.style.display = 'none';
+          return;
+        }
+        label.style.display = '';
+        drawRegion(g, r);
+        const x = Math.min(Math.max(r.left + 4, 2), docW - 40);
+        const y = Math.min(Math.max(r.top + 4, 2), docH - 24);
+        place(label, x, y);
+        anchor.set(g, [x + 10, y + 10]);
+      });
+      if (this.#arrows) {
+        const seen = new Set<string>();
+        for (let i = 0; i + 1 < regions.segments.length; i++) {
+          const from = regions.segments[i].region, to = regions.segments[i + 1].region;
+          const a = anchor.get(from), b = anchor.get(to);
+          const key = `${from.id}>${to.id}`;
+          if (!a || !b || seen.has(key)) continue;
+          seen.add(key);
+          const c = curve(a, b, 10);
+          if (!c) continue;
+          this.#svg.append(
+            svgEl('path', { class: 'shadow', d: c.d, transform: 'translate(1.2 1.8)' }),
+            svgEl('path', { class: 'halo', d: c.d }),
+            svgEl('path', { class: 'real rflow', d: c.d, 'marker-end': 'url(#tov-head-real)' }),
+          );
+        }
+      }
+    } else {
+      // Stop detail: everything, or only the expanded region's stops.
+      const only = this.#expanded ? new Set(this.#expanded.stops) : null;
+      if (this.#expanded) {
+        const r = regionRect(this.#expanded);
+        if (r) drawRegion(this.#expanded, r);
+      }
+      const realStops = only ? order.stops.filter((s) => only.has(s)) : order.stops;
+      const suggStops = only ? suggested.filter((s) => only.has(s)) : suggested;
+      const realPts = realStops.map(realPos);
+      const suggPts = suggStops.map(suggPos);
+      this.#groupBadges(order.stops, only, realPos, R);
+      this.#suggBadges.forEach((b, i) => {
+        const s = suggested[i];
+        if (only && !only.has(s)) return void (b.style.display = 'none');
+        b.style.display = '';
+        const [x, y] = suggPos(s);
+        place(b, x, y);
+      });
+      if (this.#outlines) {
+        for (const s of showReal ? realStops : suggStops) {
+          const r = box(s.element);
+          if (r.width < 1 && r.height < 1) continue;
+          const a = { x: String(r.left - 2), y: String(r.top - 2), width: String(r.width + 4), height: String(r.height + 4), rx: '3' };
+          this.#svg.append(svgEl('rect', { ...a, class: 'outline-halo' }), svgEl('rect', { ...a, class: s.hidden ? 'outline hidden-stop' : 'outline' }));
+        }
+      }
+      // Jump markers are keyed by real stop index; map them onto this (possibly filtered) list.
+      const realJumps = new Set<number>();
+      realStops.forEach((s, i) => {
+        const next = realStops[i + 1];
+        if (next && jumps.has(s.index) && next.index === s.index + 1) realJumps.add(i + 1);
+      });
+      if (this.#arrows && showSugg) this.#drawPath(suggPts, R, 'sugg', new Set());
+      if (this.#arrows && showReal) this.#drawPath(realPts, R, 'real', realJumps);
     }
-    if (this.#arrows && showSugg) this.#drawPath(suggPts, R, 'sugg', new Set());
-    if (this.#arrows && showReal) this.#drawPath(realPts, R, 'real', jumps);
     for (const e of this.#highlight) {
       const r = box(e);
       const a = { x: String(r.left - 5), y: String(r.top - 5), width: String(r.width + 10), height: String(r.height + 10), rx: '4' };
@@ -830,11 +1010,45 @@ export class Overlay {
     }
   }
 
+  /**
+   * Places the real-order badges. Badges that would sit on top of each other are merged into
+   * one ("706–763 (4)") so stacked numbers stay readable on dense pages.
+   */
+  #groupBadges(stops: Stop[], only: Set<Stop> | null, pos: (s: Stop) => Pt, R: number): void {
+    const near = R * 1.6;
+    // A badge joins a group if it is close to any member, so a run of overlapping badges
+    // becomes one group even when the first and last are further apart.
+    const groups: { pts: Pt[]; first: number; last: number; count: number; badge: HTMLDivElement }[] = [];
+    stops.forEach((s, i) => {
+      const badge = this.#realBadges[i];
+      if (!badge) return;
+      if (only && !only.has(s)) return void (badge.style.display = 'none');
+      const [x, y] = pos(s);
+      const g = groups.find((g) => g.pts.some(([gx, gy]) => Math.abs(gx - x) < near && Math.abs(gy - y) < near));
+      if (g) {
+        g.last = s.index;
+        g.count++;
+        g.pts.push([x, y]);
+        badge.style.display = 'none';
+        return;
+      }
+      badge.style.display = '';
+      place(badge, x, y);
+      groups.push({ pts: [[x, y]], first: s.index, last: s.index, count: 1, badge });
+    });
+    for (const g of groups) {
+      g.badge.textContent = g.count > 1 ? `${g.first}–${g.last} (${g.count})` : String(g.first);
+      g.badge.classList.toggle('grouped', g.count > 1);
+    }
+  }
+
   #drawPath(pts: Pt[], R: number, kind: 'real' | 'sugg', jumps: Set<number>): void {
     for (let i = 0; i + 1 < pts.length; i++) {
+      const jump = kind === 'real' && jumps.has(i + 1);
+      // "Long jumps only": skip short hops between neighbours, but never hide a backward jump.
+      if (this.#longOnly && !jump && Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) < config.regions.longJumpPx) continue;
       const c = curve(pts[i], pts[i + 1], R);
       if (!c) continue;
-      const jump = kind === 'real' && jumps.has(i + 1);
       this.#svg.append(
         // Soft offset shadow under the white halo lifts the arrow off the page and separates crossings.
         svgEl('path', { class: 'shadow', d: c.d, transform: 'translate(1.2 1.8)' }),
@@ -849,6 +1063,12 @@ export class Overlay {
       }
     }
   }
+}
+
+/** "1. Chat · complementary · 85 stops · from press 799" */
+function regionCaption(g: Region): string {
+  const kind = g.kind === 'landmark' ? g.role : g.kind === 'inferred' ? 'inferred' : 'no landmark';
+  return `${g.name} · ${kind} · ${g.stops.length} stop${g.stops.length === 1 ? '' : 's'} · from press ${g.stops[0].index}`;
 }
 
 /** A gentle quadratic curve between badge centres, trimmed to the badge edges. */

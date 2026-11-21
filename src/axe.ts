@@ -5,6 +5,7 @@
  */
 import config from '../config/defaults.json';
 import rules from '../config/rules.json';
+import { isSkipLink } from './checks';
 import { OVERLAY_TAG, labelOf } from './order';
 import type { Issue, Severity } from './types';
 
@@ -44,7 +45,12 @@ export async function runAxe(axe: AxeLike): Promise<Issue[]> {
   const out: Issue[] = [];
   const add = (r: AxeRuleResult, kind: 'violation' | 'incomplete') => {
     const t = RULES[r.id];
-    const elements = r.nodes.map((n) => resolve(n.target)).filter((e): e is Element => !!e);
+    let elements = r.nodes.map((n) => resolve(n.target)).filter((e): e is Element => !!e);
+    // axe exempts skip links from "region" only if they come before the first ordinary link it
+    // finds. Our open panel contains ordinary links inside Shadow DOM, where "before" cannot be
+    // decided, so axe then flags real skip links. Drop exactly those.
+    if (r.id === 'region') elements = elements.filter((e) => !isSkipLink(e));
+    if (!elements.length && r.nodes.length) return;
     out.push({
       id: `axe-${r.id}-${kind}`,
       rule: r.id,

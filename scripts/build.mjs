@@ -27,7 +27,19 @@ const compactCss = {
   },
 };
 const { version } = JSON.parse(await readFile(`${root}package.json`, 'utf8'));
-const common = { bundle: true, format: 'iife', target: 'es2022', minify: true, logLevel: 'warning', plugins: [compactCss], define: { __VERSION__: JSON.stringify(version) } };
+// The config's _comment entries document the file for people editing it; they are not
+// needed at run time, so they are stripped from the bundles.
+const stripConfigComments = {
+  name: 'strip-config-comments',
+  setup(b) {
+    b.onLoad({ filter: /config[\\/][^\\/]+\.json$/ }, async (args) => {
+      const strip = (v) => Array.isArray(v) ? v.map(strip) : v && typeof v === 'object'
+        ? Object.fromEntries(Object.entries(v).filter(([k]) => k !== '_comment').map(([k, x]) => [k, strip(x)])) : v;
+      return { contents: JSON.stringify(strip(JSON.parse(await readFile(args.path, 'utf8')))), loader: 'json' };
+    });
+  },
+};
+const common = { bundle: true, format: 'iife', target: 'es2022', minify: true, logLevel: 'warning', plugins: [compactCss, stripConfigComments], define: { __VERSION__: JSON.stringify(version) } };
 // Core build (no axe-core): small enough for a bookmarklet.
 // The bookmarklet build swaps dom-accessibility-api for a small stand-in (src/accname-lite.ts).
 await build({

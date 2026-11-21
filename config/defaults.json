@@ -2,6 +2,13 @@
   "_comment": "Adjustable settings.",
   "ignoreSelectors": [],
   "siteUrl": "https://voiceofgrog.github.io/tab-order-visualizer/",
+  "regions": {
+    "_comment": "Region view groups stops by landmark. It is the default when a page has more than autoThreshold stops. A landmark with more than maxStopsPerRegion stops is split into inferred groups (lists, named containers) of at least minGroupStops. 'Long jumps only' hides arrows shorter than longJumpPx unless they jump backwards.",
+    "autoThreshold": 150,
+    "maxStopsPerRegion": 60,
+    "minGroupStops": 3,
+    "longJumpPx": 250
+  },
   "safari": {
     "_comment": "By default Safari's Tab key only reaches text fields and pop-up menus (plus elements with tabindex); links, buttons, checkboxes and similar are skipped unless 'Press Tab to highlight each item' is on in Safari Settings > Advanced. Set tabToAll to true if you have that setting on.",
     "tabToAll": false
@@ -75,21 +82,67 @@
     "empty-heading",
     "bypass",
     "scrollable-region-focusable",
-    "frame-focusable-content"
+    "frame-focusable-content",
+    "region",
+    "landmark-unique",
+    "landmark-one-main"
   ],
   "display": {
     "defaultPalette": "navy",
     "defaultSize": "medium",
     "palettes": {
-      "navy": { "label": "Navy (default)", "real": "#1a1a5e", "realText": "#ffffff", "suggested": "#b0006a", "suggestedText": "#ffffff", "halo": "#ffffff" },
-      "contrast": { "label": "High contrast (black, yellow outline)", "real": "#000000", "realText": "#ffff00", "suggested": "#0047ab", "suggestedText": "#ffffff", "halo": "#ffff00" },
-      "magenta": { "label": "Magenta and teal", "real": "#8a0057", "realText": "#ffffff", "suggested": "#005f56", "suggestedText": "#ffffff", "halo": "#ffffff" },
-      "dark": { "label": "For dark pages (white)", "real": "#ffffff", "realText": "#000000", "suggested": "#ffd23f", "suggestedText": "#000000", "halo": "#000000" }
+      "navy": {
+        "label": "Navy (default)",
+        "real": "#1a1a5e",
+        "realText": "#ffffff",
+        "suggested": "#b0006a",
+        "suggestedText": "#ffffff",
+        "halo": "#ffffff"
+      },
+      "contrast": {
+        "label": "High contrast (black, yellow outline)",
+        "real": "#000000",
+        "realText": "#ffff00",
+        "suggested": "#0047ab",
+        "suggestedText": "#ffffff",
+        "halo": "#ffff00"
+      },
+      "magenta": {
+        "label": "Magenta and teal",
+        "real": "#8a0057",
+        "realText": "#ffffff",
+        "suggested": "#005f56",
+        "suggestedText": "#ffffff",
+        "halo": "#ffffff"
+      },
+      "dark": {
+        "label": "For dark pages (white)",
+        "real": "#ffffff",
+        "realText": "#000000",
+        "suggested": "#ffd23f",
+        "suggestedText": "#000000",
+        "halo": "#000000"
+      }
     },
     "sizes": {
-      "small": { "label": "Small", "badge": 18, "font": 10, "stroke": 1.5 },
-      "medium": { "label": "Medium", "badge": 22, "font": 12, "stroke": 2 },
-      "large": { "label": "Large", "badge": 30, "font": 16, "stroke": 3.5 }
+      "small": {
+        "label": "Small",
+        "badge": 18,
+        "font": 10,
+        "stroke": 1.5
+      },
+      "medium": {
+        "label": "Medium",
+        "badge": 22,
+        "font": 12,
+        "stroke": 2
+      },
+      "large": {
+        "label": "Large",
+        "badge": 30,
+        "font": 16,
+        "stroke": 3.5
+      }
     }
   }
 }

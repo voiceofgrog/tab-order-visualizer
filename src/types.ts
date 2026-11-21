@@ -1,5 +1,6 @@
 import type { OrderResult, Stop } from './order';
 import type { Announcement } from './time';
+import type { RegionMap } from './regions';
 
 /** fail = very likely a WCAG failure; review = a person should check; advice = best practice. */
 export type Severity = 'fail' | 'review' | 'advice';
@@ -31,6 +32,8 @@ export interface ScanResult {
   jumps: Set<number>;
   /** Roughly what a screen reader announces for each stop (input to the time model). */
   announcements: Map<Stop, Announcement>;
+  /** Stops grouped by landmark (or inferred group), for the Region view. */
+  regions: RegionMap;
   axe: 'ran' | 'not-included' | 'error';
   axeMessage?: string;
 }

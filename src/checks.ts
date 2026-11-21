@@ -9,6 +9,7 @@
 import config from '../config/defaults.json';
 import { OVERLAY_TAG, composedParent, describe, invisibility, labelOf, type OrderResult, type Stop } from './order';
 import type { Issue } from './types';
+import type { RegionMap } from './regions';
 
 export interface Probe {
   /** Hidden stops that become visible when focused (skip-link pattern). */
@@ -380,4 +381,44 @@ function deepActive(): Element | null {
   let a = document.activeElement;
   while (a?.shadowRoot?.activeElement) a = a.shadowRoot.activeElement;
   return a;
+}
+
+// ---------------------------------------------------------------------------
+// Landmark and region issues (from the region map)
+// ---------------------------------------------------------------------------
+
+export function regionIssues(map: RegionMap, total: number): Issue[] {
+  const issues: Issue[] = [];
+  const add = (i: Omit<Issue, 'id' | 'source' | 'labels'>) =>
+    issues.push({ ...i, id: `tool-${i.rule}-${issues.length}`, source: 'tool', labels: i.elements.map(labelOf) });
+
+  if (map.outside >= 5 && map.outside / total >= 0.1) {
+    const outside = map.regions.find((r) => r.kind === 'outside')!;
+    add({
+      rule: 'outside-landmarks',
+      severity: 'advice',
+      title: `${map.outside} Tab stops outside any landmark`,
+      summary: `${map.outside} of ${total} Tab stops are not inside a landmark (header, navigation, main, aside, footer or a named region). Screen reader users who move by landmark can miss them, and the page structure is harder to follow.`,
+      fix: 'Put these controls inside the landmark they belong to, or wrap the area in a <section> with a heading or aria-label.',
+      note: 'A best practice, not a WCAG failure on its own.',
+      wcag: ['1.3.1'],
+      elements: outside.stops.map((s) => s.element),
+    });
+  }
+
+  for (const r of map.regions) {
+    if (r.entries < 3 || r.kind === 'outside') continue;
+    const starts = map.segments.filter((g) => g.region === r).map((g) => g.first.element);
+    add({
+      rule: 'region-fragmented',
+      severity: 'advice',
+      title: `Tab enters "${r.name}" ${r.entries} separate times`,
+      summary: `Tab leaves "${r.name}" and comes back ${r.entries - 1} more time${r.entries === 2 ? '' : 's'}, so keyboard users go through this area in pieces, mixed with other parts of the page.`,
+      fix: 'Keep each area’s controls together in the HTML, so Tab finishes one area before it moves to the next.',
+      note: 'Suggested, based on landmarks and groups. Some layouts interleave areas on purpose.',
+      wcag: ['2.4.3', '1.3.2'],
+      elements: starts,
+    });
+  }
+  return issues;
 }

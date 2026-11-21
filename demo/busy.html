@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tab order demo: a busy dashboard (Region view)</title>
+<style>
+  body { margin: 0; font: 15px/1.4 system-ui, sans-serif; color: #222; background: #f7f7fa; }
+  header { background: #1f2340; color: #fff; padding: .5rem 1rem; }
+  header a { color: #fff; margin-right: .75rem; }
+  .layout { display: grid; grid-template-columns: 1fr 300px; gap: 1rem; padding: 1rem; }
+  main { background: #fff; padding: 1rem; border-radius: 8px; }
+  aside { background: #fff; padding: 1rem; border-radius: 8px; }
+  [role=toolbar] button { margin: 0 .25rem .25rem 0; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  #feed li { display: flex; gap: .5rem; align-items: center; padding: .15rem 0; border-bottom: 1px solid #eee; }
+  #chat li { padding: .1rem 0; }
+  .legal { padding: 1rem; columns: 3; }
+  .legal a { display: block; }
+  footer { padding: 1rem; position: relative; height: 3rem; }
+  /* Overlapping icon links: badges for these would stack, so the tool groups them. */
+  .social a { position: absolute; left: 12rem; top: 1rem; width: 24px; height: 24px; background: #ccd; border-radius: 12px; }
+  .social a:nth-child(2) { left: calc(12rem + 3px); } .social a:nth-child(3) { left: calc(12rem + 6px); }
+  .social a:nth-child(4) { left: calc(12rem + 9px); } .social a:nth-child(5) { left: calc(12rem + 12px); }
+</style>
+</head>
+<body>
+<header>
+  <nav aria-label="Main" id="nav"></nav>
+</header>
+<div class="layout">
+  <main>
+    <h1>Channel dashboard</h1>
+    <div role="toolbar" aria-label="Mod actions" id="tools"></div>
+    <ul aria-label="Activity feed" id="feed"></ul>
+    <section aria-labelledby="stats-h">
+      <h2 id="stats-h">Stats</h2>
+      <p id="stats"></p>
+    </section>
+  </main>
+  <!-- Problem: positive tabindex pulls parts of the chat ahead, so Tab enters it three times. -->
+  <aside aria-label="Chat">
+    <label>Message <input type="text" id="message"></label>
+    <button type="button" tabindex="1">Send</button>
+    <button type="button" tabindex="3">Emotes</button>
+    <ul id="chat"></ul>
+  </aside>
+</div>
+<!-- Problem: a block of links outside any landmark. -->
+<div class="legal" id="legal"></div>
+<footer>
+  <div class="social" id="social"></div>
+</footer>
+<script>
+  const add = (parent, html) => parent.insertAdjacentHTML('beforeend', html);
+  const nav = document.getElementById('nav');
+  ['Home', 'Browse', 'Following', 'Esports', 'Music', 'Creative', 'Events', 'Clips', 'Videos', 'Schedule', 'About', 'Settings']
+    .forEach((t, i) => add(nav, `<a href="#${t.toLowerCase()}"${i === 0 ? ' tabindex="2"' : ''}>${t}</a>`));
+  ['Ban', 'Timeout', 'Delete', 'Pin', 'Slow mode', 'Followers only', 'Emote only', 'Clear chat']
+    .forEach((t) => add(document.getElementById('tools'), `<button type="button">${t}</button>`));
+  for (let i = 1; i <= 60; i++) add(document.getElementById('feed'), `<li><a href="#e${i}">Event ${i}</a> <button type="button">Details ${i}</button></li>`);
+  for (let i = 1; i <= 6; i++) add(document.getElementById('stats'), `<a href="#s${i}">Stat ${i}</a> `);
+  for (let i = 1; i <= 40; i++) add(document.getElementById('chat'), `<li><a href="#u${i}">viewer_${i}</a>: hello</li>`);
+  for (let i = 1; i <= 30; i++) add(document.getElementById('legal'), `<a href="#l${i}">Legal link ${i}</a>`);
+  ['Twitter', 'Instagram', 'YouTube', 'TikTok', 'Discord'].forEach((t) => add(document.getElementById('social'), `<a href="#${t}" aria-label="${t}"></a>`));
+</script>
+<script src="/dist/tov-full.js"></script>
+</body>
+</html>

@@ -90,12 +90,46 @@ export function makeRegionLabels(kit: Kit, box: HTMLElement, map: RegionMap, onC
   box.replaceChildren();
   return map.regions.map((g) => {
     const label = kit.el('div', `rlabel ${g.kind}`);
-    const kind = g.kind === 'landmark' ? g.role : g.kind === 'inferred' ? 'inferred' : 'no landmark';
-    label.textContent = `${g.name} · ${kind} · ${g.stops.length} stop${g.stops.length === 1 ? '' : 's'} · from press ${g.stops[0].index}`;
+    const n = g.stops.length;
+    // Short caption: the outline style already says landmark / inferred / none, and "region" is
+    // the commonest role, so the role is shown only when it adds something.
+    const role = g.kind === 'landmark' && g.named && g.role !== 'region' ? ` · ${g.role}` : '';
+    label.dataset.full = `${g.name}${role} · ${n} stop${n === 1 ? '' : 's'} · #${g.stops[0].index}`;
+    label.dataset.compact = `${g.name} · ${n}`;
+    label.textContent = label.dataset.full;
+    const kind = g.kind === 'landmark' ? `${g.role} landmark` : g.kind === 'inferred' ? 'inferred group (not a landmark)' : 'not in any landmark';
+    label.title = `${g.name}: ${kind}, ${n} Tab stop${n === 1 ? '' : 's'}, first reached at Tab press ${g.stops[0].index}` +
+      (g.entries > 1 ? `, entered ${g.entries} separate times` : '') + '. Click to show its stops.';
     label.addEventListener('click', () => onClick(g));
     box.append(label);
     return label;
   });
+}
+
+interface Box4 { x: number; y: number; w: number; h: number }
+const hits = (a: Box4, b: Box4) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+/**
+ * Places a label at (x, y) without covering labels already placed: first try the full caption,
+ * then the compact one ("Whispers · 1"), then move it below whatever it collides with.
+ */
+function placeLabel(kit: Kit, label: HTMLDivElement, x: number, y: number, placed: Box4[], docH: number): Box4 {
+  const measure = (): Box4 => {
+    kit.place(label, x, y);
+    return { x, y, w: label.offsetWidth, h: label.offsetHeight };
+  };
+  label.textContent = label.dataset.full ?? '';
+  let b = measure();
+  if (!placed.some((p) => hits(b, p))) return b;
+  label.textContent = label.dataset.compact ?? '';
+  b = measure();
+  for (let tries = 0; tries < 20; tries++) {
+    const blocker = placed.find((p) => hits(b, p));
+    if (!blocker) break;
+    y = Math.min(blocker.y + blocker.h + 2, docH - b.h - 2);
+    b = measure();
+  }
+  return b;
 }
 
 /** The landmark's own box, or (for groups without one) the union of its visible stops. */
@@ -121,6 +155,7 @@ export function drawOverview(
   docW: number, docH: number, arrows: boolean,
 ): void {
   const anchor = new Map<Region, Pt>();
+  const placed: Box4[] = [];
   map.regions.forEach((g, i) => {
     const r = regionRect(g, box);
     const label = labels[i];
@@ -129,8 +164,9 @@ export function drawOverview(
     drawRegion(kit, svg, g, r);
     const x = Math.min(Math.max(r.left + 4, 2), docW - 40);
     const y = Math.min(Math.max(r.top + 4, 2), docH - 24);
-    kit.place(label, x, y);
-    anchor.set(g, [x + 10, y + 10]);
+    const b = placeLabel(kit, label, x, y, placed, docH);
+    placed.push(b);
+    anchor.set(g, [b.x + 10, b.y + 10]);
   });
   if (!arrows) return;
   const seen = new Set<string>();

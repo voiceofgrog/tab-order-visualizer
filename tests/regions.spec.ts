@@ -69,7 +69,11 @@ test.describe('region view', () => {
     await expect(panelOf(page).getByRole('radio', { name: 'Regions' })).toBeChecked();
     const labels = page.locator('tab-order-viz .rlabel');
     await expect(labels).toHaveCount(7);
-    await expect(labels.first()).toHaveText('Chat · complementary · 43 stops · from press 1');
+    await expect(labels.first()).toHaveText('Chat · complementary · 43 stops · #1');
+    await expect(labels.first()).toHaveAttribute(
+      'title',
+      'Chat: complementary landmark, 43 Tab stops, first reached at Tab press 1, entered 3 separate times. Click to show its stops.',
+    );
     await expect(page.locator('tab-order-viz .rlabel.inferred')).toHaveCount(2);
     expect(await visibleBadges(page)).toBe(0);
   });
@@ -96,6 +100,50 @@ test.describe('region view', () => {
     await page.locator('tab-order-viz .rlabel', { hasText: 'Stats' }).click();
     await expect(panelOf(page).getByRole('button', { name: 'Stats' })).toHaveAttribute('aria-pressed', 'true');
     expect(await visibleBadges(page)).toBe(6);
+  });
+});
+
+test.describe('region labels on crowded pages', () => {
+  test('tiny stacked regions get compact labels that never overlap', async ({ page }) => {
+    await page.goto('/demo/good.html');
+    await page.evaluate(() => {
+      const col = document.createElement('div');
+      col.style.cssText = 'position:absolute; left:8px; top:120px; width:160px;';
+      for (let i = 1; i <= 6; i++) {
+        col.insertAdjacentHTML('beforeend', `<section aria-label="Widget ${i}" style="height:16px; overflow:hidden"><button style="font-size:10px">W${i}</button></section>`);
+      }
+      document.body.append(col);
+      window.TabOrderViz!.show();
+    });
+    const panel = panelOf(page);
+    await expect(panel.getByRole('status').first()).toHaveText(/Tab stops/);
+    await panel.getByRole('radio', { name: 'Regions' }).check();
+    const boxes = await page.evaluate(() =>
+      [...document.querySelector('tab-order-viz')!.shadowRoot!.querySelectorAll<HTMLElement>('.rlabel')]
+        .filter((l) => l.style.display !== 'none')
+        .map((l) => {
+          const r = l.getBoundingClientRect();
+          return { x: r.x, y: r.y, w: r.width, h: r.height, text: l.textContent ?? '' };
+        }),
+    );
+    const overlaps = boxes.flatMap((a, i) =>
+      boxes.slice(i + 1)
+        .filter((b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h)
+        .map((b) => `${a.text} / ${b.text}`),
+    );
+    expect(overlaps).toEqual([]);
+    expect(boxes.some((b) => /^Widget \d · 1$/.test(b.text))).toBe(true);
+  });
+
+  test('unnamed groups are named by the heading before them, or by what they are', async ({ page }) => {
+    await page.goto('/demo/good.html');
+    const names = await page.evaluate(async () => {
+      const buttons = [1, 2, 3, 4].map((i) => `<button>Message ${i}</button>`).join('');
+      const clips = [1, 2, 3, 4].map((i) => `<li><a href="#clip${i}">Clip ${i}</a></li>`).join('');
+      document.body.insertAdjacentHTML('beforeend', `<div role="log">${buttons}</div><h2>Recent clips</h2><ul>${clips}</ul>`);
+      return (await window.TabOrderViz!.scan()).regions.regions.filter((g) => g.kind === 'inferred').map((g) => g.name);
+    });
+    expect(names).toEqual(['message log (unnamed)', 'Recent clips']);
   });
 });
 

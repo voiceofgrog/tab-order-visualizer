@@ -10,7 +10,7 @@
  * Inferred groups are a convenience for reading, not landmarks: they are labelled as such.
  */
 import config from '../config/defaults.json';
-import { composedParent, describe, type Stop } from './order';
+import { composedParent, type Stop } from './order';
 
 export type RegionKind = 'landmark' | 'inferred' | 'outside';
 
@@ -97,13 +97,43 @@ function clip(s: string, n = 40): string {
 }
 
 /** Name for an inferred group: its label, else its first heading, legend or caption. */
+const HEADING = 'h1,h2,h3,h4,h5,h6,[role=heading]';
+const GROUP_WORD: Record<string, string> = {
+  ul: 'list', ol: 'list', list: 'list', listbox: 'list box', log: 'message log', feed: 'feed', table: 'table', grid: 'grid',
+  treegrid: 'grid', tree: 'tree', toolbar: 'toolbar', menu: 'menu', menubar: 'menu bar', tablist: 'tabs', fieldset: 'group',
+  group: 'group', section: 'section', article: 'article', form: 'form',
+};
+
+/**
+ * A heading that titles the element: one of the two elements right before it (or right before
+ * its parent) that is itself a heading. Headings buried inside other sections do not count,
+ * since they usually title something else.
+ */
+function headingBefore(el: Element): string {
+  let n: Element | null = el;
+  for (let depth = 0; n && depth < 2; depth++, n = n.parentElement) {
+    for (let s = n.previousElementSibling, steps = 0; s && steps < 2; s = s.previousElementSibling, steps++) {
+      if (!s.matches(HEADING)) continue;
+      const text = s.textContent?.replace(/\s+/g, ' ').trim();
+      if (text) return text;
+    }
+  }
+  return '';
+}
+
+/**
+ * Name for an inferred group: its label; else a heading inside it (or its legend or caption);
+ * else the heading just before it; else what it is, such as "message log (unnamed)".
+ */
 function groupName(el: Element): { name: string; named: boolean } {
   const label = nameFrom(el);
   if (label) return { name: label, named: true };
-  const heading = el.querySelector('h1,h2,h3,h4,h5,h6,legend,caption,[role=heading]')?.textContent?.replace(/\s+/g, ' ').trim();
-  if (heading) return { name: heading, named: true };
+  const inside = el.querySelector(`${HEADING},legend,caption`)?.textContent?.replace(/\s+/g, ' ').trim();
+  if (inside) return { name: inside, named: true };
+  const before = headingBefore(el);
+  if (before) return { name: before, named: true };
   const role = el.getAttribute('role') || el.localName;
-  return { name: `Unnamed ${role === 'ul' || role === 'ol' ? 'list' : role} ${describe(el)}`, named: false };
+  return { name: `${GROUP_WORD[role] ?? role} (unnamed)`, named: false };
 }
 
 export function computeRegions(stops: Stop[]): RegionMap {

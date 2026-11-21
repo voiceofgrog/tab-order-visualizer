@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 (2026-11-21)
+
+Region view on crowded pages (found on a live moderation dashboard):
+- Shorter labels, such as "Stream · 20 stops · #24"; the role is shown only when it adds something, and full details are in a hover tooltip.
+- Labels no longer cover each other: a crowded label switches to a compact form ("Whispers · 1") and, if needed, moves below the label it would cover.
+- Unnamed groups take the heading right before them, or are described by what they are ("message log (unnamed)") instead of an HTML tag name.
+
 ## 1.1.0 (2026-11-21)
 
 **Busy pages**

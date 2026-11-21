@@ -7,7 +7,7 @@
  * to focus events (for example menus that open on focus) will see those events.
  */
 import config from '../config/defaults.json';
-import { ENGINE, OVERLAY_TAG, composedParent, describe, invisibility, labelOf, type OrderResult, type Stop } from './order';
+import { OVERLAY_TAG, composedParent, describe, invisibility, labelOf, type OrderResult, type Stop } from './order';
 import type { Issue } from './types';
 
 export interface Probe {
@@ -93,13 +93,13 @@ function coverage(el: HTMLElement): { by: Element; entirely: boolean } | null {
 }
 
 /**
- * Focuses an element and scrolls it the way pressing Tab would. In Chromium and Firefox,
- * focus() already scrolls like Tab (verified against real key presses in the tests). WebKit's
- * focus() scrolls even items that are already on screen, while Tab does not; for items off
- * screen, Tab centres them. Both verified against real key presses in WebKit.
+ * Focuses an element and scrolls it the way pressing Tab would: items already on screen are
+ * left where they are (even if something covers them), items off screen are centred. We do
+ * not let focus() scroll, because engines differ: WebKit's focus() scrolls even on-screen
+ * items, and Firefox applies focus() scrolling later, after we have measured. Checked against
+ * real key presses in each engine by the tests.
  */
 function focusLikeTab(el: HTMLElement): void {
-  if (ENGINE !== 'webkit') return el.focus();
   el.focus({ preventScroll: true });
   const r = el.getBoundingClientRect();
   if (r.top < 0 || r.bottom > window.innerHeight || r.left < 0 || r.right > window.innerWidth) {
@@ -284,7 +284,7 @@ export function ownIssues(order: OrderResult, suggested: Stop[], probe: Probe): 
     // the page still provides one, so do not advise adding it.
     const hasSkip =
       order.stops.slice(0, 2).some((s) => isSkipLink(s.element)) ||
-      order.skipped.some((s) => s.code === 'safari-link' && isSkipLink(s.element) && !contains(main, s.element));
+      order.skipped.some((s) => s.code === 'safari-default' && isSkipLink(s.element) && !contains(main, s.element));
     if (!hasSkip && firstInMain >= config.checks.skipLinkMinStops) {
       add({
         rule: 'no-skip-link',

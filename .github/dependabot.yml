@@ -1,0 +1,16 @@
+# Weekly pull requests for dependency updates (axe-core ships rule improvements regularly).
+# Each pull request runs the full test suite before anything is merged.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-tools:
+        patterns: ["*"]
+        exclude-patterns: ["axe-core"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

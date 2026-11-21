@@ -32,7 +32,8 @@ test.describe('keyboard operation', () => {
     await expect(page.getByRole('link', { name: 'fees' })).toBeFocused();
   });
 
-  test('every panel control is reachable with Tab, and Refresh keeps focus', { tag: '@cross-browser' }, async ({ page }) => {
+  test('every panel control is reachable with Tab, and Refresh keeps focus', { tag: '@cross-browser' }, async ({ page, browserName }) => {
+    test.skip(browserName === 'webkit', 'Default Safari tabs only to text fields and menus (Option+Tab reaches buttons)');
     await open(page);
     const names: string[] = [];
     for (let i = 0; i < 40; i++) {

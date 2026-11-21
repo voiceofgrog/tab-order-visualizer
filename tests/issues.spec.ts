@@ -127,7 +127,7 @@ test.describe('false-positive check on the well-built demo', () => {
     await page.keyboard.press('Tab');
     await expect(page.getByRole('searchbox', { name: 'Search the site' })).toBeFocused();
     const skipped = await page.evaluate(() => window.TabOrderViz!.compute().skipped.find((s) => s.label === 'Skip to main content'));
-    expect(skipped?.code).toBe('safari-link');
+    expect(skipped?.code).toBe('safari-default');
   });
 
   test('skip link counts as visible because it appears on focus', { tag: '@cross-browser' }, async ({ page, browserName }) => {

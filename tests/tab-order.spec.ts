@@ -50,27 +50,30 @@ test.describe('demo page', () => {
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Contact' })).toBeFocused(); // has tabindex, so even Safari stops
     await page.keyboard.press('Tab');
-    // Safari skips plain links by default, so it goes on to the first button.
-    const third = browserName === 'webkit' ? page.getByRole('button', { name: 'Invisible button' }) : page.getByRole('link', { name: 'News' });
+    // Default Safari only tabs to text fields and pop-up menus, so it goes on to the Email field.
+    const third = browserName === 'webkit' ? page.getByRole('textbox', { name: 'Email' }) : page.getByRole('link', { name: 'News' });
     await expect(third).toBeFocused();
   });
 
-  test('Safari rules: plain links and scroll boxes are skipped, and the tool says why', { tag: '@cross-browser' }, async ({ page, browserName }) => {
+  test('Safari rules: only text fields, menus and tabindex elements are stops, and the tool says why', { tag: '@cross-browser' }, async ({ page, browserName }) => {
     test.skip(browserName !== 'webkit', 'Safari-specific behaviour');
     await page.goto('/demo/index.html');
     const r = await page.evaluate(() => {
       const o = window.TabOrderViz!.compute();
       return {
         labels: o.stops.map((s) => s.label),
-        safariSkipped: o.skipped.filter((s) => s.code === 'safari-link').map((s) => s.label),
+        safariSkipped: o.skipped.filter((s) => s.code === 'safari-default').map((s) => s.label),
         note: o.notes.find((n) => n.startsWith('Safari rules applied')) ?? '',
       };
     });
-    expect(r.labels).toContain('Contact');
+    expect(r.labels).toContain('Contact'); // a link, but with tabindex
+    expect(r.labels).toContain('Email');
+    expect(r.labels).toContain('Widget tabindex 1'); // a button, but with tabindex
     expect(r.labels).not.toContain('News');
+    expect(r.labels).not.toContain('Subscribe');
     expect(r.labels.some((l) => l.startsWith('Scrollable area'))).toBe(false);
-    expect(r.safariSkipped).toEqual(expect.arrayContaining(['News', 'Events', 'Privacy']));
-    expect(r.note).toMatch(/links are skipped, because Safari only tabs to links when "Press Tab to highlight each item" is on/);
+    expect(r.safariSkipped).toEqual(expect.arrayContaining(['News', 'Privacy', 'Subscribe', 'Medium', 'More options']));
+    expect(r.note).toMatch(/^Safari rules applied: by default Safari's Tab key only reaches text fields and pop-up menus/);
   });
 
   test('a radio group is one Tab stop', { tag: '@cross-browser' }, async ({ page }) => {
@@ -88,11 +91,14 @@ test.describe('demo page', () => {
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Widget tabindex 1' })).toBeFocused();
     await page.keyboard.press('Tab');
+    if (browserName === 'webkit') {
+      // Default Safari skips the untabindexed button, the slotted link and the scroll box.
+      await expect(page.getByRole('textbox', { name: 'Notes editor' })).toBeFocused();
+      return;
+    }
     await expect(page.getByRole('button', { name: 'Widget first in source' })).toBeFocused();
     await page.keyboard.press('Tab');
-    // Safari skips the slotted link and the scroll box, so it reaches the editor next.
-    const next = browserName === 'webkit' ? page.getByRole('textbox', { name: 'Notes editor' }) : page.getByRole('link', { name: 'Slotted help link' });
-    await expect(next).toBeFocused();
+    await expect(page.getByRole('link', { name: 'Slotted help link' })).toBeFocused();
   });
 
   test('the demo keyboard trap really traps (test-data check)', { tag: '@cross-browser' }, async ({ page }) => {

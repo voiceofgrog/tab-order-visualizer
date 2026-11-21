@@ -1,10 +1,15 @@
-# On every push to main: type-check, run the Playwright tests, build, and publish dist/site
-# to GitHub Pages. Publishing is skipped while the repository is private (free GitHub
-# accounts can only publish Pages from public repositories).
+# On every push to main and every pull request: type-check, run the Playwright tests, build,
+# and (main only) publish dist/site to GitHub Pages.
+#   - Linux: Chromium runs every test; Firefox runs the real-key-press comparisons.
+#   - macOS: WebKit runs the real-key-press comparisons. WebKit on macOS follows the system's
+#     default keyboard settings, so it is the closest stand-in for real Safari (WebKit on
+#     Linux tabs to everything, unlike Safari).
 name: Test and publish site
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -14,7 +19,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  # One run at a time per branch, so main deploys never overlap and pull requests do not queue behind them.
+  group: pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -27,10 +33,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npx playwright install --with-deps chromium firefox
       - run: npm run typecheck
-      # Chromium runs every test; Firefox and WebKit (Safari) run the real-key-press comparisons.
-      - run: npm run test:all
+      - run: npm run build
+      - run: npx playwright test --project=chromium --project=firefox
       - name: Package the extension for download
         run: cd dist && zip -r site/tab-order-visualizer-extension.zip extension
       - uses: actions/upload-pages-artifact@v3
@@ -40,13 +46,34 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-linux
+          path: playwright-report
+          retention-days: 7
+
+  safari:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install webkit
+      - run: npm run build
+      - run: npx playwright test --project=webkit
+      - name: Keep the test report if tests fail
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-macos
           path: playwright-report
           retention-days: 7
 
   deploy:
-    needs: build
-    if: ${{ !github.event.repository.private }}
+    needs: [build, safari]
+    # Only main publishes; pull requests (including Dependabot updates) are tested, never deployed.
+    if: ${{ github.event_name != 'pull_request' && !github.event.repository.private }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages

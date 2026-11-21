@@ -3,8 +3,8 @@
   "ignoreSelectors": [],
   "siteUrl": "https://voiceofgrog.github.io/tab-order-visualizer/",
   "safari": {
-    "_comment": "Safari's Tab key skips links (without tabindex) unless 'Press Tab to highlight each item' is on in Safari Settings > Advanced. Set tabToLinks to true if you have that setting on.",
-    "tabToLinks": false
+    "_comment": "By default Safari's Tab key only reaches text fields and pop-up menus (plus elements with tabindex); links, buttons, checkboxes and similar are skipped unless 'Press Tab to highlight each item' is on in Safari Settings > Advanced. Set tabToAll to true if you have that setting on.",
+    "tabToAll": false
   },
   "keyboard": {
     "_comment": "Shortcut that moves focus into the panel, or back to where you were on the page. Escape inside the panel also goes back.",

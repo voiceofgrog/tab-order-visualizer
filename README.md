@@ -8,6 +8,8 @@ It draws numbered badges and arrows on the page itself, explains why each elemen
 
 **Install it from the website: [voiceofgrog.github.io/tab-order-visualizer](https://voiceofgrog.github.io/tab-order-visualizer/)** (bookmarklet, extension download, and demo pages to try it on). The bookmarklet carries all its code inside itself, so once it's installed, using it never contacts the website.
 
+![The tool on the demo page: numbered badges and arrows showing the real Tab order jumping backwards across a row of cards, with the panel listing 2 Fail, 6 Review and 4 Advice issues and a time-to-reach table.](docs/screenshot.png)
+
 ## What it shows
 
 | On the page | Meaning |
@@ -71,7 +73,8 @@ Click the toolbar button to toggle the overlay. The extension only gets access t
 5. **Special cases:**
    - A radio group is one stop (arrow keys move between its options).
    - A scrollable box with nothing focusable inside becomes a stop itself (Chrome and Firefox; not Safari).
-6. **CSS does not change Tab order.** Moving content with `order`, `flex-direction: row-reverse` or grid placement changes what you see but not where Tab goes. The exception is CSS `reading-flow`, which only Chrome and Edge support so far. The tool flags it but does not model it yet.
+6. **Browsers differ.** By default, Safari's Tab key only reaches text fields and pop-up menus, plus anything with a `tabindex`. Links, buttons, checkboxes and similar are skipped unless "Press Tab to highlight each item" is on (Safari Settings, Advanced); Option+Tab reaches them. Safari never makes scroll boxes into stops. The tool detects the browser and applies its rules, listing what Safari skips and why. If you have that setting on, set `safari.tabToAll` to `true` in `config/defaults.json`. One consequence: with default settings, a skip link does not help Safari keyboard users at all.
+7. **CSS does not change Tab order.** Moving content with `order`, `flex-direction: row-reverse` or grid placement changes what you see but not where Tab goes. The exception is CSS `reading-flow`, which only Chrome and Edge support so far. The tool flags it but does not model it yet.
 
 ## What it checks
 

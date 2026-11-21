@@ -51,8 +51,8 @@ test.describe('demo page', () => {
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Contact' })).toBeFocused(); // has tabindex, so even Safari stops
     await page.keyboard.press('Tab');
-    // Default Safari only tabs to text fields and pop-up menus, so it goes on to the Email field.
-    const third = browserName === 'webkit' ? page.getByRole('textbox', { name: 'Email' }) : page.getByRole('link', { name: 'News' });
+    // Default Safari skips links and buttons but stops on the details summary.
+    const third = browserName === 'webkit' ? page.locator('summary', { hasText: 'More options' }) : page.getByRole('link', { name: 'News' });
     await expect(third).toBeFocused();
   });
 
@@ -73,7 +73,8 @@ test.describe('demo page', () => {
     expect(r.labels).not.toContain('News');
     expect(r.labels).not.toContain('Subscribe');
     expect(r.labels.some((l) => l.startsWith('Scrollable area'))).toBe(false);
-    expect(r.safariSkipped).toEqual(expect.arrayContaining(['News', 'Privacy', 'Subscribe', 'Medium', 'More options']));
+    expect(r.labels).toContain('More options'); // details summary
+    expect(r.safariSkipped).toEqual(expect.arrayContaining(['News', 'Privacy', 'Subscribe', 'Medium']));
     expect(r.note).toMatch(/^Safari rules applied: by default Safari's Tab key only reaches text fields and pop-up menus/);
   });
 

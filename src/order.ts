@@ -97,7 +97,7 @@ export function computeOrder(root?: Element): OrderResult {
   if (ENGINE === 'webkit') {
     notes.push(
       SAFARI_DEFAULT
-        ? `Safari rules applied: by default Safari's Tab key only reaches text fields and pop-up menus (plus anything with tabindex), ` +
+        ? `Safari rules applied: by default Safari's Tab key only reaches text fields and pop-up menus (plus details summaries and anything with tabindex), ` +
             `so ${safariSkipped} item${safariSkipped === 1 ? ' is' : 's are'} skipped. Option+Tab reaches them. See the README to change this.`
         : 'Safari rules applied (safari.tabToAll is on).',
     );
@@ -121,13 +121,16 @@ const SAFARI_REASON =
   'Safari tabs only to text fields and menus by default (Option+Tab reaches this)';
 const TEXT_INPUT_TYPES = new Set(['text', 'search', 'email', 'url', 'tel', 'password', 'number', 'date', 'datetime-local', 'month', 'time', 'week']);
 
-/** True if default Safari skips this element when tabbing (explicit tabindex always counts). */
+/**
+ * True if default Safari skips this element when tabbing. Explicit tabindex always counts, and
+ * Safari also stops on a <details> <summary> (seen in real key presses on macOS).
+ */
 function safariSkips(el: Element): boolean {
   if (el.hasAttribute('tabindex')) return false;
-  if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return false;
+  if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || el.localName === 'summary') return false;
   if (el instanceof HTMLInputElement) return !TEXT_INPUT_TYPES.has(el.type);
   if (el instanceof HTMLElement && el.isContentEditable) return false;
-  return true; // links, buttons, <summary>, media controls, iframes
+  return true; // links, buttons, checkboxes, radios, media controls, iframes
 }
 
 // ---------------------------------------------------------------------------

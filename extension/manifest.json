@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tab-Order Visualizer",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "description": "Shows a page's keyboard tab order, flags problems and estimates time to reach. Runs locally; sends nothing anywhere.",
   "action": { "default_title": "Toggle tab order overlay" },
   "background": { "service_worker": "background.js", "scripts": ["background.js"] },

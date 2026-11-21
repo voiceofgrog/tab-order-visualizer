@@ -17,11 +17,12 @@ First public release. Site: https://voiceofgrog.github.io/tab-order-visualizer/
 - Estimated time to reach any stop, and to Tab through the whole page, for three adjustable profiles (sighted keyboard user; everyday and expert screen reader users). Shows what a skip link or the suggested order would save. Clearly labelled as a model.
 
 **Browsers**
-- Applies each engine's Tab rules. In Safari, plain links are skipped unless "Press Tab to highlight each item" is on, and scroll boxes are not stops.
-- Automated tests compare the tool with real Tab presses in Chromium, Firefox and WebKit.
+- Applies each engine's Tab rules. Default Safari only tabs to text fields, pop-up menus and `<details>` summaries (plus anything with `tabindex`), and never to scroll boxes; skipped items are listed with the reason. `safari.tabToAll` covers people who turned on "Press Tab to highlight each item".
+- Automated tests compare the tool with real Tab presses on every push: Chromium and Firefox on Linux, WebKit on macOS.
+- Known difference: in Safari, tabbing backwards, one item under a sticky header was reported as covered but was visible in real Safari. Tracked by a test marked as an expected failure.
 
 **Delivery**
-- Bookmarklet (about 58,700 characters, under Firefox's 65,536-character bookmark limit), an install page with a copy-code fallback, an unpacked browser extension with the full checks, and demo pages.
+- Bookmarklet (about 59,000 characters, under Firefox's 65,536-character bookmark limit), an install page with a copy-code fallback, an unpacked browser extension with the full checks, and demo pages.
 - Panel: keyboard operable (Alt+Shift+T, Escape), light and dark themes, colour presets, three sizes, minimise, step-through, version shown with a link to check for updates.
 
 **Privacy**

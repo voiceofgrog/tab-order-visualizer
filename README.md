@@ -129,7 +129,9 @@ Automated tests compare the tool with real Tab presses in Chromium (Playwright).
 
 On a live news site, the tool's order matched real Tab presses for 403 of about 406 stops. The remaining differences came from content that changed during the test. Details, and the two tool bugs that validation found and fixed, are in [docs/validation.md](docs/validation.md).
 
-Firefox automation does not run on the development machine yet (Playwright's Firefox fails to start), so Firefox has had manual checks only.
+The automated tests run on every push in three engines: Chromium (every test), Firefox, and WebKit on macOS (the closest stand-in for Safari, using Mac default keyboard settings). In all three, the tool's Tab order matches real key presses on the demo pages.
+
+One known difference: in Safari, when tabbing backwards, the tool reported one item (a `<details>` summary) as hidden under a sticky header, but real Safari showed it. Every other item matched. The test is kept and marked as an expected failure until this is understood.
 
 ## Development
 

@@ -1,6 +1,6 @@
 {
   "name": "tab-order-visualizer",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "private": true,
   "license": "MIT",
   "description": "Overlay a page's real keyboard tab order, flag problems, suggest a better order, and estimate time-to-reach.",

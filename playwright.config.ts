@@ -16,7 +16,11 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
   },
   projects: [
+    // Chromium is the reference engine: every test, including ones that pin demo-page details.
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    // Other engines run the tests that compare the tool with real key presses there
+    // (Tab rules differ between browsers, so demo-page stop numbers legitimately differ).
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, grep: /@cross-browser/ },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] }, grep: /@cross-browser/ },
   ],
 });

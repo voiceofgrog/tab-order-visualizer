@@ -27,9 +27,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run typecheck
-      - run: npm test
+      # Chromium runs every test; Firefox and WebKit (Safari) run the real-key-press comparisons.
+      - run: npm run test:all
       - name: Package the extension for download
         run: cd dist && zip -r site/tab-order-visualizer-extension.zip extension
       - uses: actions/upload-pages-artifact@v3

@@ -78,7 +78,7 @@ test.describe('issues on the broken demo', () => {
     expect(issues.some((i) => i.includes('axe:bypass'))).toBe(false);
   });
 
-  test('scan leaves scroll position and focus as it found them', async ({ page }) => {
+  test('scan leaves scroll position and focus as it found them', { tag: '@cross-browser' }, async ({ page }) => {
     await page.goto('/demo/index.html');
     await page.getByRole('link', { name: 'Card B details' }).focus();
     const before = await page.evaluate(() => scrollY);
@@ -87,7 +87,7 @@ test.describe('issues on the broken demo', () => {
     expect(await page.evaluate(() => scrollY)).toBe(before);
   });
 
-  test('covered-focus check agrees with real Tab and Shift+Tab presses', async ({ page }) => {
+  test('covered-focus check agrees with real Tab and Shift+Tab presses', { tag: '@cross-browser' }, async ({ page }) => {
     await page.goto('/demo/index.html?trap=off');
     const n = await page.evaluate(() => window.TabOrderViz!.compute().stops.length);
     const tool = await toolCovered(page);
@@ -121,7 +121,17 @@ test.describe('false-positive check on the well-built demo', () => {
     expect(result).toEqual({ issues: [], jumps: 0, axe: 'ran' });
   });
 
-  test('skip link counts as visible because it appears on focus', async ({ page }) => {
+  test('in Safari the skip link is skipped by Tab, and the tool explains why', { tag: '@cross-browser' }, async ({ page, browserName }) => {
+    test.skip(browserName !== 'webkit', 'Safari-specific behaviour');
+    await page.goto('/demo/good.html');
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('searchbox', { name: 'Search the site' })).toBeFocused();
+    const skipped = await page.evaluate(() => window.TabOrderViz!.compute().skipped.find((s) => s.label === 'Skip to main content'));
+    expect(skipped?.code).toBe('safari-link');
+  });
+
+  test('skip link counts as visible because it appears on focus', { tag: '@cross-browser' }, async ({ page, browserName }) => {
+    test.skip(browserName === 'webkit', 'Safari skips links by default; covered by the Safari test above');
     await page.goto('/demo/good.html');
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused();

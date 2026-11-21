@@ -29,7 +29,7 @@ async function tabAndDescribe(page: Page, labels: string[]): Promise<string> {
 }
 
 test.describe('demo page', () => {
-  test('reported order matches real Tab presses', async ({ page }) => {
+  test('reported order matches real Tab presses', { tag: '@cross-browser' }, async ({ page }) => {
     await page.goto('/demo/index.html?trap=off');
     const expected = await toolOrder(page);
     expect(expected.length).toBeGreaterThan(10);
@@ -43,17 +43,37 @@ test.describe('demo page', () => {
     expect(after === 'BODY (left the page)' || after === expected[0], `after last stop: ${after}`).toBe(true);
   });
 
-  test('positive tabindex jumps ahead of the header links', async ({ page }) => {
+  test('positive tabindex jumps ahead of the header links', { tag: '@cross-browser' }, async ({ page, browserName }) => {
     await page.goto('/demo/index.html');
     await page.keyboard.press('Tab');
     await expect(page.getByRole('searchbox', { name: 'Search the site' })).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'Contact' })).toBeFocused();
+    await expect(page.getByRole('link', { name: 'Contact' })).toBeFocused(); // has tabindex, so even Safari stops
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'News' })).toBeFocused();
+    // Safari skips plain links by default, so it goes on to the first button.
+    const third = browserName === 'webkit' ? page.getByRole('button', { name: 'Invisible button' }) : page.getByRole('link', { name: 'News' });
+    await expect(third).toBeFocused();
   });
 
-  test('a radio group is one Tab stop', async ({ page }) => {
+  test('Safari rules: plain links and scroll boxes are skipped, and the tool says why', { tag: '@cross-browser' }, async ({ page, browserName }) => {
+    test.skip(browserName !== 'webkit', 'Safari-specific behaviour');
+    await page.goto('/demo/index.html');
+    const r = await page.evaluate(() => {
+      const o = window.TabOrderViz!.compute();
+      return {
+        labels: o.stops.map((s) => s.label),
+        safariSkipped: o.skipped.filter((s) => s.code === 'safari-link').map((s) => s.label),
+        note: o.notes.find((n) => n.startsWith('Safari rules applied')) ?? '',
+      };
+    });
+    expect(r.labels).toContain('Contact');
+    expect(r.labels).not.toContain('News');
+    expect(r.labels.some((l) => l.startsWith('Scrollable area'))).toBe(false);
+    expect(r.safariSkipped).toEqual(expect.arrayContaining(['News', 'Events', 'Privacy']));
+    expect(r.note).toMatch(/links are skipped, because Safari only tabs to links when "Press Tab to highlight each item" is on/);
+  });
+
+  test('a radio group is one Tab stop', { tag: '@cross-browser' }, async ({ page }) => {
     await page.goto('/demo/index.html');
     await page.getByRole('radio', { name: 'Medium' }).focus();
     await page.keyboard.press('Tab');
@@ -62,7 +82,7 @@ test.describe('demo page', () => {
     await expect(page.getByRole('textbox', { name: 'Email' })).toBeFocused();
   });
 
-  test('positive tabindex inside Shadow DOM only reorders within the component', async ({ page }) => {
+  test('positive tabindex inside Shadow DOM only reorders within the component', { tag: '@cross-browser' }, async ({ page, browserName }) => {
     await page.goto('/demo/index.html');
     await page.getByRole('button', { name: 'Subscribe' }).focus();
     await page.keyboard.press('Tab');
@@ -70,10 +90,12 @@ test.describe('demo page', () => {
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Widget first in source' })).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'Slotted help link' })).toBeFocused();
+    // Safari skips the slotted link and the scroll box, so it reaches the editor next.
+    const next = browserName === 'webkit' ? page.getByRole('textbox', { name: 'Notes editor' }) : page.getByRole('link', { name: 'Slotted help link' });
+    await expect(next).toBeFocused();
   });
 
-  test('the demo keyboard trap really traps (test-data check)', async ({ page }) => {
+  test('the demo keyboard trap really traps (test-data check)', { tag: '@cross-browser' }, async ({ page }) => {
     await page.goto('/demo/index.html');
     const editor = page.getByRole('textbox', { name: 'Notes editor' });
     await editor.focus();
@@ -110,7 +132,7 @@ test.describe('demo page', () => {
 });
 
 test.describe('overlay', () => {
-  test('does not change layout or tab order', async ({ page }) => {
+  test('does not change layout or tab order', { tag: '@cross-browser' }, async ({ page }) => {
     await page.goto('/demo/index.html');
     const snapshot = () =>
       page.evaluate(() => ({
@@ -127,9 +149,13 @@ test.describe('overlay', () => {
     expect(await snapshot()).toEqual(before);
   });
 
-  test('draws one badge per stop, isolated from page CSS', async ({ page }) => {
+  test('draws one badge per stop, isolated from page CSS', { tag: '@cross-browser' }, async ({ page }) => {
     await page.goto('/demo/index.html');
-    const count = await page.evaluate(() => window.TabOrderViz!.compute().stops.length);
+    // Counts come from the tool in this browser (Safari, for example, skips plain links).
+    const { count, hidden } = await page.evaluate(() => {
+      const s = window.TabOrderViz!.compute().stops;
+      return { count: s.length, hidden: s.filter((x) => x.hidden).length };
+    });
     await page.evaluate(() => window.TabOrderViz!.show());
     // The demo page has `.badge { display: none !important }` and `button { font-size: 30px }`.
     const badges = page.locator('tab-order-viz .badge');
@@ -137,10 +163,10 @@ test.describe('overlay', () => {
     await expect(badges.first()).toBeVisible();
     await expect(badges.first()).toHaveCSS('font-size', '12px');
     await expect(page.getByRole('button', { name: 'Hide overlay' })).toHaveCSS('font-size', '12.5px');
-    await expect(page.getByRole('status').first()).toHaveText(`${count} Tab stops, 2 focusable but not visible.`);
+    await expect(page.getByRole('status').first()).toHaveText(`${count} Tab stops, ${hidden} focusable but not visible.`);
   });
 
-  test('panel hides, shows and closes the overlay', async ({ page }) => {
+  test('panel hides, shows and closes the overlay', { tag: '@cross-browser' }, async ({ page }) => {
     await page.goto('/demo/index.html');
     await page.evaluate(() => window.TabOrderViz!.show());
     const badge = page.locator('tab-order-viz .badge').first();
@@ -154,7 +180,7 @@ test.describe('overlay', () => {
 });
 
 test.describe('bookmarklet', () => {
-  test('runs, styles itself and toggles on a strict-CSP page', async ({ page }) => {
+  test('runs, styles itself and toggles on a strict-CSP page', { tag: '@cross-browser' }, async ({ page }) => {
     // Note: page.evaluate is not itself subject to the page's script-src, so this does NOT prove
     // the browser lets a javascript: bookmark run here. It proves that once running, the tool's
     // own DOM building and styling survive default-src 'none', style-src 'self' and Trusted Types.
@@ -163,7 +189,8 @@ test.describe('bookmarklet', () => {
     await page.goto('/demo/csp.html');
     await page.evaluate(code);
     await expect(page.getByRole('region', { name: 'Tab order visualizer' })).toBeVisible();
-    await expect(page.getByRole('status').first()).toHaveText('3 Tab stops.');
+    const n = await page.evaluate(() => window.TabOrderViz!.compute().stops.length); // 3 in Chrome; 1 in Safari (links skipped)
+    await expect(page.getByRole('status').first()).toHaveText(`${n} Tab stop${n === 1 ? '' : 's'}.`);
     await expect(page.locator('tab-order-viz .badge').first()).toHaveCSS('border-radius', '11px');
     await page.evaluate(code); // second click closes
     await expect(page.locator('tab-order-viz')).toHaveCount(0);

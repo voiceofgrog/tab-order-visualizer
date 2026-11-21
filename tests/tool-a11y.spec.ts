@@ -15,12 +15,12 @@ async function open(page: import('@playwright/test').Page) {
 }
 
 test.describe('keyboard operation', () => {
-  test('opening the tool puts keyboard focus in the panel', async ({ page }) => {
+  test('opening the tool puts keyboard focus in the panel', { tag: '@cross-browser' }, async ({ page }) => {
     await open(page);
     await expect(panelOf(page)).toBeFocused();
   });
 
-  test('shortcut and Escape move between the page and the panel', async ({ page }) => {
+  test('shortcut and Escape move between the page and the panel', { tag: '@cross-browser' }, async ({ page }) => {
     await open(page);
     await page.getByRole('link', { name: 'fees' }).focus();
     await page.keyboard.press('Alt+Shift+T');
@@ -32,7 +32,7 @@ test.describe('keyboard operation', () => {
     await expect(page.getByRole('link', { name: 'fees' })).toBeFocused();
   });
 
-  test('every panel control is reachable with Tab, and Refresh keeps focus', async ({ page }) => {
+  test('every panel control is reachable with Tab, and Refresh keeps focus', { tag: '@cross-browser' }, async ({ page }) => {
     await open(page);
     const names: string[] = [];
     for (let i = 0; i < 40; i++) {
@@ -57,7 +57,7 @@ test.describe('keyboard operation', () => {
     await expect(refresh).toBeFocused();
   });
 
-  test('closing from the panel returns focus to the page', async ({ page }) => {
+  test('closing from the panel returns focus to the page', { tag: '@cross-browser' }, async ({ page }) => {
     await page.goto('/demo/good.html');
     await page.getByRole('link', { name: 'fees' }).focus();
     await page.evaluate(() => window.TabOrderViz!.show());
@@ -102,6 +102,15 @@ test.describe('panel header', () => {
     await expect(panel.getByText(/^\d+ Fail$/)).toBeVisible();
     await expect(panel.getByText(/^\d+ Review$/)).toBeVisible();
     await expect(panel.getByText(/^\d+ Advice$/)).toBeVisible();
+  });
+
+  test('footer shows the version and links to the site for updates', async ({ page }) => {
+    const { version } = JSON.parse(await readFile('package.json', 'utf8'));
+    await open(page);
+    await expect(panelOf(page).getByText(`Version ${version} ·`)).toBeVisible();
+    await expect(panelOf(page).getByRole('link', { name: 'Check for a newer version' })).toHaveAttribute(
+      'href', 'https://voiceofgrog.github.io/tab-order-visualizer/',
+    );
   });
 
   test('a clean page says so', async ({ page }) => {

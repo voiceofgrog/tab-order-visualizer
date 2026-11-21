@@ -42,6 +42,8 @@ export interface Skipped {
   element: Element;
   label: string;
   reason: string;
+  /** Set when the element is skipped only because of a browser-specific rule. */
+  code?: 'safari-link';
 }
 
 export interface OrderResult {
@@ -91,8 +93,34 @@ export function computeOrder(root?: Element): OrderResult {
   visit(root ?? modal ?? document.body, { inert: false, closedDetails: false, scope: null }, items, skipped, notes);
   const drafts = collapseRadioGroups(flatten(items), skipped);
   const stops = drafts.map((d, i) => toStop(d, i + 1));
+  const safariLinks = skipped.filter((s) => s.code === 'safari-link').length;
+  if (ENGINE === 'webkit') {
+    notes.push(
+      'Safari rules applied: scrollable areas are not Tab stops' +
+        (safariLinks
+          ? `, and ${safariLinks} link${safariLinks === 1 ? ' is' : 's are'} skipped, because Safari only tabs to links when ` +
+            '"Press Tab to highlight each item" is on (Safari Settings, Advanced) or with Option+Tab. ' +
+            'If you have that setting on, set safari.tabToLinks to true in config/defaults.json.'
+          : '.'),
+    );
+  }
   return { stops, skipped, notes };
 }
+
+/**
+ * Which engine's Tab rules to apply. They differ: Safari (WebKit) skips links by default and
+ * does not make scroll boxes Tab stops; Chrome, Edge and Firefox do both.
+ */
+export const ENGINE: 'blink' | 'gecko' | 'webkit' = (() => {
+  const ua = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+  if (/Firefox\//.test(ua)) return 'gecko';
+  if (/Chrome\/|Chromium\/|Edg\//.test(ua)) return 'blink';
+  if (/AppleWebKit\//.test(ua)) return 'webkit';
+  return 'blink';
+})();
+const SAFARI_SKIPS_LINKS = ENGINE === 'webkit' && !config.safari.tabToLinks;
+const SAFARI_LINK_REASON =
+  'Safari skips links when tabbing unless "Press Tab to highlight each item" is on (Safari Settings, Advanced); Option+Tab reaches them';
 
 // ---------------------------------------------------------------------------
 // Tree walk
@@ -126,7 +154,7 @@ function visit(el: Element, ctx: Ctx, items: Item[], skipped: Skipped[], notes: 
   if (tab !== null) {
     const why = notTabbable(el, cs, tab, here);
     if (why) {
-      skipped.push({ element: el, label: labelOf(el), reason: why });
+      skipped.push({ element: el, label: labelOf(el), reason: why, ...(why === SAFARI_LINK_REASON ? { code: 'safari-link' as const } : {}) });
     } else {
       item.stop = makeDraft(el, tab, ctx);
       item.tabindex = tab;
@@ -180,7 +208,7 @@ function visit(el: Element, ctx: Ctx, items: Item[], skipped: Skipped[], notes: 
   // Tab stop, so keyboard users can scroll it.
   // (A hidden scroll box cannot take focus, like any other hidden element.)
   const shown = cs.visibility === 'visible' && (typeof el.checkVisibility !== 'function' || el.checkVisibility());
-  if (!item.stop && tab === null && below === 0 && !inert && !ctx.closedDetails && shown && isScrollContainer(el, cs)) {
+  if (!item.stop && tab === null && below === 0 && !inert && !ctx.closedDetails && shown && ENGINE !== 'webkit' && isScrollContainer(el, cs)) {
     item.stop = {
       element: el,
       tabindex: 0,
@@ -292,6 +320,7 @@ function notTabbable(el: Element, cs: CSSStyleDeclaration, tab: number, ctx: Ctx
   if (tab < 0) return `tabindex="${tab}": it can be focused by script or a click, but Tab skips it`;
   if (ctx.inert) return 'inside an inert region (the inert attribute, or outside an open modal dialog)';
   if (el.matches(':disabled')) return 'disabled';
+  if (SAFARI_SKIPS_LINKS && (el.localName === 'a' || el.localName === 'area') && !el.hasAttribute('tabindex')) return SAFARI_LINK_REASON;
   if (ctx.closedDetails) return 'inside a closed <details>; it becomes reachable when the details is opened';
   if (cs.visibility === 'hidden' || cs.visibility === 'collapse') return 'visibility: hidden';
   if (cs.display === 'contents') return 'display: contents gives it no box, so browsers may skip it';

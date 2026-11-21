@@ -23,6 +23,7 @@ import { OVERLAY_TAG, type Stop } from './order';
 import { contains } from './checks';
 import { estimate, formatSeconds, PROFILES, skipLinkEstimate } from './time';
 import type { Issue, ScanResult, Severity } from './types';
+import { VERSION } from './version';
 
 interface Palette { label: string; real: string; realText: string; suggested: string; suggestedText: string; halo: string }
 interface Size { label: string; badge: number; font: number; stroke: number }
@@ -185,6 +186,7 @@ thead th { font-size: 11.5px; font-weight: 600; color: var(--ui-muted); }
 tbody th { font-weight: 600; }
 .basis { padding-left: 16px; list-style: disc; }
 .basis li { margin-bottom: 4px; }
+.foot { margin: 4px 0 0; padding-top: 10px; border-top: 1px solid var(--ui-border); }
 @media (forced-colors: active) {
   .layer { forced-color-adjust: none; }
   .shadow { display: none; }
@@ -429,7 +431,17 @@ export class Overlay {
     const [time] = section('Time to reach (estimate)');
     this.#buildTimeSection(time.lastElementChild as HTMLElement);
 
-    this.#body.append(this.#status, this.#chips, this.#notesBox, keys, display, step, time, issues);
+    // Installed bookmarklets never update themselves, so say which version this is and where to
+    // get a newer one. A plain link the user chooses to follow: the tool itself makes no requests.
+    const foot = el('p', 'small foot');
+    const site = el('a', '');
+    site.href = config.siteUrl;
+    site.target = '_blank';
+    site.rel = 'noopener noreferrer';
+    site.textContent = 'Check for a newer version';
+    foot.append(`Version ${VERSION} · `, site);
+
+    this.#body.append(this.#status, this.#chips, this.#notesBox, keys, display, step, time, issues, foot);
     panel.append(header, this.#body);
     return panel;
   }

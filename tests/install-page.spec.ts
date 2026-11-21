@@ -11,7 +11,7 @@ async function axeViolations(page: Page): Promise<string[]> {
 }
 
 test.describe('install page', () => {
-  test('offers the current bookmarklet as a draggable link', async ({ page }) => {
+  test('offers the current bookmarklet as a draggable link', { tag: '@cross-browser' }, async ({ page }) => {
     const expected = await readFile('dist/bookmarklet.txt', 'utf8');
     await page.goto('/dist/install.html');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('See how the Tab key moves through any page');
@@ -19,14 +19,15 @@ test.describe('install page', () => {
     await expect(page.getByText(`Bookmarklet size: ${expected.length.toLocaleString('en-US')} characters`)).toBeVisible();
   });
 
-  test('clicking the link runs the bookmarklet on the page', async ({ page }) => {
+  test('clicking the link runs the bookmarklet on the page', { tag: '@cross-browser' }, async ({ page }) => {
     await page.goto('/dist/install.html');
     await page.getByRole('link', { name: 'Tab order' }).click();
     await expect(page.getByRole('region', { name: 'Tab order visualizer' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Tab order visualizer' }).getByRole('status').first()).toHaveText(/Tab stops?\./);
   });
 
-  test('copy fallback puts the bookmarklet on the clipboard', async ({ page, context }) => {
+  test('copy fallback puts the bookmarklet on the clipboard', async ({ page, context, browserName }) => {
+    test.skip(browserName !== 'chromium', 'Playwright can only grant clipboard read-back permissions in Chromium');
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.goto('/dist/install.html');
     await page.getByText("Can't drag it? Add it by hand").click();
@@ -36,7 +37,7 @@ test.describe('install page', () => {
     expect(copied).toBe(await readFile('dist/bookmarklet.txt', 'utf8'));
   });
 
-  test('hostable site works from a sub-folder (as on GitHub Pages)', async ({ page }) => {
+  test('hostable site works from a sub-folder (as on GitHub Pages)', { tag: '@cross-browser' }, async ({ page }) => {
     // The local server serves the repo root, so dist/site/ is a sub-path, like /tab-order-visualizer/ on Pages.
     await page.goto('/dist/site/');
     await expect(page.getByRole('link', { name: 'Tab order' })).toHaveAttribute('href', /^javascript:/);

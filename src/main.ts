@@ -6,6 +6,7 @@
 import { computeOrder, type OrderResult } from './order';
 import { Overlay } from './overlay';
 import { scan } from './scan';
+import { VERSION } from './version';
 import { estimate, skipLinkEstimate, type Announcement, type Estimate, type SkipEstimate } from './time';
 import type { ScanResult } from './types';
 
@@ -33,7 +34,7 @@ declare global {
 if (!window.TabOrderViz) {
   let overlay: Overlay | null = null;
   const api: TabOrderVizApi = {
-    version: '0.4.0',
+    version: VERSION,
     compute: (root) => computeOrder(root),
     scan: () => scan(),
     async estimate(index) {

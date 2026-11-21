@@ -26,7 +26,8 @@ const compactCss = {
     });
   },
 };
-const common = { bundle: true, format: 'iife', target: 'es2022', minify: true, logLevel: 'warning', plugins: [compactCss] };
+const { version } = JSON.parse(await readFile(`${root}package.json`, 'utf8'));
+const common = { bundle: true, format: 'iife', target: 'es2022', minify: true, logLevel: 'warning', plugins: [compactCss], define: { __VERSION__: JSON.stringify(version) } };
 // Core build (no axe-core): small enough for a bookmarklet.
 // The bookmarklet build swaps dom-accessibility-api for a small stand-in (src/accname-lite.ts).
 await build({

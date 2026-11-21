@@ -29,10 +29,11 @@ async function tabAndDescribe(page: Page, labels: string[]): Promise<string> {
 }
 
 test.describe('demo page', () => {
-  test('reported order matches real Tab presses', { tag: '@cross-browser' }, async ({ page }) => {
+  test('reported order matches real Tab presses', { tag: '@cross-browser' }, async ({ page, browserName }) => {
     await page.goto('/demo/index.html?trap=off');
     const expected = await toolOrder(page);
-    expect(expected.length).toBeGreaterThan(10);
+    // Default Safari tabs only to text fields, menus and tabindex elements, so far fewer stops.
+    expect(expected.length).toBeGreaterThan(browserName === 'webkit' ? 3 : 10);
 
     const actual: string[] = [];
     for (let i = 0; i < expected.length; i++) actual.push(await tabAndDescribe(page, expected));
@@ -76,7 +77,8 @@ test.describe('demo page', () => {
     expect(r.note).toMatch(/^Safari rules applied: by default Safari's Tab key only reaches text fields and pop-up menus/);
   });
 
-  test('a radio group is one Tab stop', { tag: '@cross-browser' }, async ({ page }) => {
+  test('a radio group is one Tab stop', { tag: '@cross-browser' }, async ({ page, browserName }) => {
+    test.skip(browserName === 'webkit', 'Default Safari does not tab to radio buttons at all');
     await page.goto('/demo/index.html');
     await page.getByRole('radio', { name: 'Medium' }).focus();
     await page.keyboard.press('Tab');
@@ -169,7 +171,7 @@ test.describe('overlay', () => {
     await expect(badges.first()).toBeVisible();
     await expect(badges.first()).toHaveCSS('font-size', '12px');
     await expect(page.getByRole('button', { name: 'Hide overlay' })).toHaveCSS('font-size', '12.5px');
-    await expect(page.getByRole('status').first()).toHaveText(`${count} Tab stops, ${hidden} focusable but not visible.`);
+    await expect(page.getByRole('status').first()).toHaveText(`${count} Tab stops${hidden ? `, ${hidden} focusable but not visible` : ''}.`);
   });
 
   test('panel hides, shows and closes the overlay', { tag: '@cross-browser' }, async ({ page }) => {
@@ -195,7 +197,7 @@ test.describe('bookmarklet', () => {
     await page.goto('/demo/csp.html');
     await page.evaluate(code);
     await expect(page.getByRole('region', { name: 'Tab order visualizer' })).toBeVisible();
-    const n = await page.evaluate(() => window.TabOrderViz!.compute().stops.length); // 3 in Chrome; 1 in Safari (links skipped)
+    const n = await page.evaluate(() => window.TabOrderViz!.compute().stops.length); // 4 in Chrome; 1 in default Safari (only the text field)
     await expect(page.getByRole('status').first()).toHaveText(`${n} Tab stop${n === 1 ? '' : 's'}.`);
     await expect(page.locator('tab-order-viz .badge').first()).toHaveCSS('border-radius', '11px');
     await page.evaluate(code); // second click closes

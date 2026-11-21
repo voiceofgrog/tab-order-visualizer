@@ -39,7 +39,7 @@ jobs:
       - run: npx playwright test --project=chromium --project=firefox
       - name: Package the extension for download
         run: cd dist && zip -r site/tab-order-visualizer-extension.zip extension
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist/site
       - name: Keep the test report if tests fail

@@ -19,7 +19,6 @@ First public release. Site: https://voiceofgrog.github.io/tab-order-visualizer/
 **Browsers**
 - Applies each engine's Tab rules. Default Safari only tabs to text fields, pop-up menus and `<details>` summaries (plus anything with `tabindex`), and never to scroll boxes; skipped items are listed with the reason. `safari.tabToAll` covers people who turned on "Press Tab to highlight each item".
 - Automated tests compare the tool with real Tab presses on every push: Chromium and Firefox on Linux, WebKit on macOS.
-- Known difference: in Safari, tabbing backwards, one item under a sticky header was reported as covered but was visible in real Safari. Tracked by a test marked as an expected failure.
 
 **Delivery**
 - Bookmarklet (about 59,000 characters, under Firefox's 65,536-character bookmark limit), an install page with a copy-code fallback, an unpacked browser extension with the full checks, and demo pages.

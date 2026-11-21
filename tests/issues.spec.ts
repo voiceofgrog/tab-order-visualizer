@@ -26,6 +26,7 @@ async function realCovered(page: Page, key: 'Tab' | 'Shift+Tab', presses: number
   const covered = new Set<string>();
   for (let i = 0; i < presses; i++) {
     await page.keyboard.press(key);
+    await scrollSettled(page);
     const hit = await page.evaluate(() => {
       let a: Element | null = document.activeElement;
       while (a?.shadowRoot?.activeElement) a = a.shadowRoot.activeElement;
@@ -51,6 +52,23 @@ async function realCovered(page: Page, key: 'Tab' | 'Shift+Tab', presses: number
     if (hit) covered.add(hit);
   }
   return [...covered].sort();
+}
+
+/**
+ * Waits until the page's scroll position stops changing. Some engines (WebKit on macOS) animate
+ * the scroll that follows a Tab press; measuring mid-animation made the ground truth vary run to run.
+ * This waits on the condition itself (two equal readings in a row), not for a fixed time.
+ */
+async function scrollSettled(page: Page): Promise<void> {
+  let last = '';
+  await expect
+    .poll(async () => {
+      const now = await page.evaluate(() => `${scrollX},${scrollY}`);
+      const settled = now === last;
+      last = now;
+      return settled;
+    }, { intervals: [50, 50, 100, 100, 200] })
+    .toBe(true);
 }
 
 test.describe('issues on the broken demo', () => {
@@ -87,11 +105,7 @@ test.describe('issues on the broken demo', () => {
     expect(await page.evaluate(() => scrollY)).toBe(before);
   });
 
-  test('covered-focus check agrees with real Tab and Shift+Tab presses', { tag: '@cross-browser' }, async ({ page, browserName }) => {
-    // Known discrepancy (macOS WebKit only): tabbing backwards, the tool reports the 'More options'
-    // summary as covered by the sticky header, but real Safari showed it. Every other item matches.
-    // Marked as an expected failure so it stays visible; if it starts passing, remove this line.
-    test.fail(browserName === 'webkit' && process.platform === 'darwin', 'Known Safari discrepancy for one item under a sticky header; see README');
+  test('covered-focus check agrees with real Tab and Shift+Tab presses', { tag: '@cross-browser' }, async ({ page }) => {
     await page.goto('/demo/index.html?trap=off');
     const n = await page.evaluate(() => window.TabOrderViz!.compute().stops.length);
     const tool = await toolCovered(page);

@@ -131,8 +131,6 @@ On a live news site, the tool's order matched real Tab presses for 403 of about 
 
 The automated tests run on every push in three engines: Chromium (every test), Firefox, and WebKit on macOS (the closest stand-in for Safari, using Mac default keyboard settings). In all three, the tool's Tab order matches real key presses on the demo pages.
 
-One known difference: in Safari, when tabbing backwards, the tool reported one item (a `<details>` summary) as hidden under a sticky header, but real Safari showed it. Every other item matched. The test is kept and marked as an expected failure until this is understood.
-
 ## Development
 
 ```powershell
